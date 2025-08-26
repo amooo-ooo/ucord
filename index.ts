@@ -43,53 +43,42 @@ client.once('ready', async () => {
   }
 });
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string = 'Request timed out'): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+async function createCompletion(options: any) {
+  let attempts = 0;
+  const maxAttempts = switchOnTimeout ? MODEL_SETTINGS.length : 1;
   
-  try {
-    const result = await promise;
-    clearTimeout(timeoutId);
-    return result;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(timeoutMessage);
-    }
-    throw error;
-  }
-}
-
-async function callWithRetry(callFn: () => Promise<any>, options: { 
-  retryOnTimeout: boolean,
-  switchModel?: boolean 
-}): Promise<any> {
-  try {
-    return await withTimeout(callFn(), timeout, 'Timeout');
-  } catch (error: any) {
-    if (error.message === 'Timeout' && options.retryOnTimeout) {
-      console.log(`API call timed out after ${timeout}ms. ${options.switchModel ? 'Switching model and retrying.' : 'Retrying.'}`);
+  while (attempts < maxAttempts) {
+    attempts++;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
       
-      if (options.switchModel) {
+      const response = await openai.chat.completions.create({
+        ...MODEL_SETTINGS[model],
+        ...options,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      const isTimeout = error.name === 'AbortError' || error.message === 'Timeout';
+      
+      if (isTimeout && switchOnTimeout && attempts < maxAttempts) {
+        console.log(`API call timed out after ${timeout}ms. Switching model and retrying.`);
         model = 1 - model;
+        continue;
       }
       
-      return await callFn();
+      if (isTimeout) {
+        throw new Error('Timeout');
+      }
+      
+      throw error;
     }
-    throw error;
   }
-}
-
-async function createCompletion(options: any) {
-  const doRequest = () => openai.chat.completions.create({
-    ...MODEL_SETTINGS[model],
-    ...options,
-  });
-
-  return callWithRetry(doRequest, { 
-    retryOnTimeout: switchOnTimeout, 
-    switchModel: switchOnTimeout 
-  });
 }
 
 async function respond(conversation: any[]) {
