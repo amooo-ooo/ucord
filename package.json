@@ -1,0 +1,17 @@
+{
+  "name": "ucord",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "discord.js-selfbot-v13": "^3.7.0",
+    "node-fetch": "^3.3.2",
+    "openai": "^5.15.0"
+  }
+}

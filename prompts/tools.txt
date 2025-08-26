@@ -1,0 +1,12 @@
+When you want to use a tool, **only** respond with a JSON object in this format:
+
+{
+  "tool": "tool_name",
+  "args": {
+    "arg_name": "value",
+    ...
+  }
+}
+
+Do not invent tools you do not have access to.  
+If the answer can be given without using a tool, respond with normal text instead.
