@@ -52,7 +52,7 @@ async function createCompletion(options: any) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
+      console.log(options.messages);
       const response = await openai.chat.completions.create({
         ...MODEL_SETTINGS[model],
         ...options,
@@ -60,6 +60,7 @@ async function createCompletion(options: any) {
       });
       
       clearTimeout(timeoutId);
+      console.log(response.choices[0]);
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -87,8 +88,8 @@ async function respond(conversation: any[]) {
       try {
         const response = await createCompletion({
           messages: [
-            ...conversation,
-            { role: 'system', content: SYSTEM_PROMPT }
+            { role: 'system', content: SYSTEM_PROMPT },
+	    ...conversation,
           ],
           tools: tools,
           tool_choice: "auto"
@@ -98,8 +99,8 @@ async function respond(conversation: any[]) {
           const toolResults = await handleToolCalls(response.choices[0].message.tool_calls);
           const followUpResponse = await createCompletion({
             messages: [
-              ...conversation,
               { role: 'system', content: SYSTEM_PROMPT },
+	      ...conversation,
               response.choices[0].message,
               ...toolResults
             ]
@@ -120,8 +121,8 @@ async function respond(conversation: any[]) {
 
     const response = await createCompletion({
       messages: [
-        ...conversation,
-        { role: 'system', content: SYSTEM_PROMPT }
+        { role: 'system', content: SYSTEM_PROMPT },
+	...conversation,
       ]
     });
 
@@ -134,8 +135,8 @@ async function respond(conversation: any[]) {
 
       const followUpResponse = await createCompletion({
         messages: [
-          ...conversation,
           { role: 'system', content: SYSTEM_PROMPT },
+	  ...conversation,
           { role: 'assistant', content: responseText },
           ...toolResults
         ]
@@ -169,13 +170,13 @@ client.on('messageCreate', async (message: any) => {
     const conversation = recentMessages
       .map(msg => msg.content && ({
         role: msg.author.id === client.user.id ? 'assistant' : 'user',
-        content: `<user: ${msg.author.displayName}, channel_type: ${message.channel.type}>: ${msg.content}`,
+        content: msg.author.id === client.user.id ? msg.content : `<user: ${msg.author.displayName}, channel_type: ${message.channel.type}>: ${msg.content}`,
       }))
       .filter(Boolean)
       .reverse();
-
+    message.channel.sendTyping();
     const reply = await respond(conversation);
-    if (reply && reply.trim() !== '<NULL>') {
+    if (reply && reply.trim().toLowerCase() !== '<null>') {
       const cleanedReply = sanitizeContent(reply);
       await message.channel.send(cleanedReply);
     }

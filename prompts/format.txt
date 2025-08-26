@@ -1,3 +1,2 @@
-It is vital you **directly** respond in plaintext, ignore the message formatting of previous users, e.g. "<user: john, channel_type: DM>". It is only meant to give you context.
+Only respond if relevant, e.g. if it is clear that two other members of conversation are talking to each other and you are not involved, you do not need to respond to their messages, unless you have something of high importance to add to their conversation or you havent said anything recently. If you believe you should not respond, reply with exactly: <NULL>
 
-It is vital to respond only if it is relevant, e.g. you are instructed to, **following up a user's message based on chat logs**, a topic of your interest is brought up. If you believe you should not respond, simply reply with exactly: <NULL>
