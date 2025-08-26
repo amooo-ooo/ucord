@@ -88,7 +88,7 @@ async function respond(conversation: any[]) {
         const response = await createCompletion({
           messages: [
             ...conversation,
-            { role: 'system', content: SYSTEM_PROMPT + "\n\n" + TOOLS_PROMPT }
+            { role: 'system', content: SYSTEM_PROMPT }
           ],
           tools: tools,
           tool_choice: "auto"
@@ -99,7 +99,7 @@ async function respond(conversation: any[]) {
           const followUpResponse = await createCompletion({
             messages: [
               ...conversation,
-              { role: 'system', content: SYSTEM_PROMPT + "\n\n" + TOOLS_PROMPT },
+              { role: 'system', content: SYSTEM_PROMPT },
               response.choices[0].message,
               ...toolResults
             ]
@@ -121,7 +121,7 @@ async function respond(conversation: any[]) {
     const response = await createCompletion({
       messages: [
         ...conversation,
-        { role: 'system', content: SYSTEM_PROMPT + "\n\n" + TOOLS_PROMPT }
+        { role: 'system', content: SYSTEM_PROMPT }
       ]
     });
 
@@ -135,7 +135,7 @@ async function respond(conversation: any[]) {
       const followUpResponse = await createCompletion({
         messages: [
           ...conversation,
-          { role: 'system', content: SYSTEM_PROMPT + "\n\n" + TOOLS_PROMPT },
+          { role: 'system', content: SYSTEM_PROMPT },
           { role: 'assistant', content: responseText },
           ...toolResults
         ]
