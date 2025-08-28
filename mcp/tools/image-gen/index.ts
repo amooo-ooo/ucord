@@ -44,7 +44,7 @@ export const tool: Tool = {
         required: ["prompt"],
     },
     handler: async (args: Record<string, any>, message?: any): Promise<string> => {
-        const { 
+        let { 
             prompt,
             mode = "base",
             width = 1024,
@@ -56,6 +56,12 @@ export const tool: Tool = {
         
         if (!message) {
             return "Error: Message context not provided. Cannot send image.";
+        }
+
+        const validModes = ["base", "creative"];
+        if (!validModes.includes(mode)) {
+            console.warn(`Invalid mode "${mode}" received. Falling back to "base".`);
+            mode = "base";
         }
 
         try {
