@@ -30,12 +30,12 @@ export const tool: Tool = {
                 default: 0
             },
             cfg_scale: { 
-                type: "Range[1, 9]", 
+                type: "1..9", 
                 description: "How closely the image follows the prompt (1-10)",
                 default: 3.5
             },
             steps: { 
-                type: "Range[1, 100]", 
+                type: "1..100", 
                 description: "Number of diffusion steps (more = higher quality but slower)",
                 default: 50
             }
