@@ -43,7 +43,7 @@ export async function handleToolCalls(toolCalls: any[], message?: any) {
         ? await tool.handler(args, message)
         : `No handler implemented for tool: ${name}`;
     } catch (error) {
-      content = `Error executing tool ${name}: ${error instanceof Error ? error.message : String(error)}`;
+      content = `Error executing tool ${name}: ${error}`;
     }
 
     return {
