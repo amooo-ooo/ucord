@@ -10,18 +10,17 @@ export const tool: Tool = {
         properties: {
             prompt: { type: "string", description: "The text description of the image to generate" },
             mode: { 
-                type: "string", 
+                type: 'Literal["base", "canny", "depth"]', 
                 description: "The generation mode",
-                enum: ["base", "creative"],
                 default: "base"
             },
             width: { 
-                type: "number", 
+                type: "1..2048", 
                 description: "Image width in pixels",
                 default: 1024
             },
             height: { 
-                type: "number", 
+                type: "1..2048", 
                 description: "Image height in pixels",
                 default: 1024
             },
@@ -31,12 +30,12 @@ export const tool: Tool = {
                 default: 0
             },
             cfg_scale: { 
-                type: "number", 
+                type: "Range[1, 9]", 
                 description: "How closely the image follows the prompt (1-10)",
                 default: 3.5
             },
             steps: { 
-                type: "number", 
+                type: "Range[1, 100]", 
                 description: "Number of diffusion steps (more = higher quality but slower)",
                 default: 50
             }
@@ -58,10 +57,30 @@ export const tool: Tool = {
             return "Error: Message context not provided. Cannot send image.";
         }
 
-        const validModes = ["base", "creative"];
+        const validModes = ["base", "canny", "depth"];
         if (!validModes.includes(mode)) {
             console.warn(`Invalid mode "${mode}" received. Falling back to "base".`);
             mode = "base";
+        }
+
+        if (width < 1 || width > 2048) {
+            console.warn(`Invalid width "${width}" received. Falling back to 1024.`);
+            width = 1024;
+        }
+
+        if (height < 1 || height > 2048) {
+            console.warn(`Invalid height "${height}" received. Falling back to 1024.`);
+            height = 1024;
+        }
+
+        if (cfg_scale < 1 || cfg_scale > 9) {
+            console.warn(`Invalid cfg_scale "${cfg_scale}" received. Falling back to 3.5.`);
+            cfg_scale = 3.5;
+        }
+
+        if (steps < 1 || steps > 100) {
+            console.warn(`Invalid steps "${steps}" received. Falling back to 50.`);
+            steps = 50;
         }
 
         try {
