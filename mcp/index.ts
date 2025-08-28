@@ -2,9 +2,11 @@ import type { ChatCompletionTool } from 'openai/resources';
 import type { Tool } from './types';
 
 import Weather from './tools/weather';
+import ImageGen from './tools/image-gen';
 
 export const tools: Tool[] = [
-    Weather
+    Weather,
+    ImageGen
 ];
 
 export const chatCompletionTools: ChatCompletionTool[] = tools.map(({ name, description, parameters }) => ({
@@ -15,18 +17,21 @@ export const chatCompletionTools: ChatCompletionTool[] = tools.map(({ name, desc
 const toolMap = new Map(tools.map(tool => [tool.name, tool]));
 
 export const toolsDescription = tools.map(tool => {
-  const parameters = Object.entries(tool.parameters.properties)
-    .map(([key, value]) => {
+  const parameters = Object.entries(tool.parameters?.properties || {})
+    .map(([key, value]: [string, any]) => {
       const type = value.type;
-      const optional = tool.parameters.required?.includes(key) ? '' : '?';
-      return `${key}${optional}: ${type}`;
+      const required = Array.isArray(tool.parameters?.required) ? tool.parameters.required : [];
+      const optional = !required.includes(key);
+      const defaultValue = value.default ? '' : ` = ${JSON.stringify(value.default)}`;
+      const optionalMark = optional ? '?' : '';
+      return `${key}${optionalMark}: ${type}${defaultValue}`;
     })
     .join(', ');
 
   return `${tool.name}(${parameters}): ${tool.description}`;
 }).join('\n');
 
-export async function handleToolCalls(toolCalls: any[]) {
+export async function handleToolCalls(toolCalls: any[], message?: any) {
   return Promise.all(toolCalls.map(async (toolCall) => {
     const { name, arguments: argsString } = toolCall.function;
     const args = JSON.parse(argsString);
@@ -35,10 +40,10 @@ export async function handleToolCalls(toolCalls: any[]) {
     let content;
     try {
       content = tool 
-        ? await tool.handler(args)
+        ? await tool.handler(args, message)
         : `No handler implemented for tool: ${name}`;
     } catch (error) {
-      content = `Error executing tool ${name}: ${error.message}`;
+      content = `Error executing tool ${name}: ${error instanceof Error ? error.message : String(error)}`;
     }
 
     return {
@@ -69,5 +74,5 @@ export function parseMakeshiftToolCall(text: string) {
   } catch {
     // Ignore invalid JSON
   }
-  return { hasTool: false, processedText: text };
+  return { hasTool: false, toolCall: undefined, processedText: text };
 }

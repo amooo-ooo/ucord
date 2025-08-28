@@ -1,4 +1,4 @@
-When you want to use a tool, **only** respond with a JSON object in this format:
+When using a tool, **simply** respond with a JSON object in this format:
 
 {
   "tool": "tool_name",
@@ -8,5 +8,13 @@ When you want to use a tool, **only** respond with a JSON object in this format:
   }
 }
 
+It is vital you strictly, **ONLY** send JSON. Do NOT send any messages before the tool call, e.g.
+
+Sure thing! Generating now.
+{
+  ...
+}
+
+Otherwise you lose 1000$.
 Do not invent tools you do not have access to.  
 If the answer can be given without using a tool, respond with normal text instead.

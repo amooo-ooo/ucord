@@ -69,7 +69,7 @@ async function createCompletion(options: any) {
       
       if (isTimeout && switchOnTimeout && attempts < maxAttempts) {
         console.log(`API call timed out after ${timeout}ms. Switching model and retrying.`);
-        model = 1 - model;
+        model = (model + 1) % MODEL_SETTINGS.length;
         continue;
       }
       
@@ -82,70 +82,72 @@ async function createCompletion(options: any) {
   }
 }
 
+async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletion, conversation: any[], originalMessage: any) {
+  const message = response.choices[0].message;
+
+  if (message.tool_calls && message.tool_calls.length > 0) {
+    const toolResults = await handleToolCalls(message.tool_calls, originalMessage);
+    const followUpResponse = await createCompletion({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...conversation,
+        message,
+        ...toolResults
+      ]
+    });
+    return followUpResponse?.choices[0]?.message?.content?.trim() || '';
+  }
+
+  const responseText = message.content?.trim() || '';
+  const { hasTool, toolCall } = parseMakeshiftToolCall(responseText);
+
+  if (hasTool && toolCall) {
+    const toolResults = await handleToolCalls([toolCall], originalMessage);
+    const followUpResponse = await createCompletion({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...conversation,
+        { role: 'assistant', content: responseText },
+        ...toolResults
+      ]
+    });
+    return followUpResponse?.choices[0]?.message?.content?.trim() || '';
+  }
+
+  return responseText;
+}
+
 async function respond(conversation: any[]) {
   try {
+    const originalMessage = conversation.find(msg => msg.originalMessage)?.originalMessage;
+    
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...conversation,
+    ];
+
     if (functionCallingSupported) {
       try {
         const response = await createCompletion({
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-	    ...conversation,
-          ],
+          messages,
           tools: tools,
           tool_choice: "auto"
         });
-
-        if (response.choices[0]?.message?.tool_calls?.length > 0) {
-          const toolResults = await handleToolCalls(response.choices[0].message.tool_calls);
-          const followUpResponse = await createCompletion({
-            messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
-	      ...conversation,
-              response.choices[0].message,
-              ...toolResults
-            ]
-          });
-
-          return followUpResponse.choices[0]?.message.content.trim();
-        } else {
-          return response.choices[0]?.message.content.trim();
+        if (response) {
+          return await handleToolCalling(response, conversation, originalMessage);
         }
-      } catch (functionError: any) {
-        if (functionError.message === 'Timeout') {
-          throw functionError;
-        }
-        console.log("Function calling not supported, switching to fallback:", functionError);
+      } catch (error: any) {
+        if (error.message === 'Timeout') throw error;
+        console.log("Function calling not supported, switching to fallback:", error);
         functionCallingSupported = false;
       }
     }
 
-    const response = await createCompletion({
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-	...conversation,
-      ]
-    });
-
-    const responseText = response.choices?.[0]?.message.content.trim() || '';
-
-    const { hasTool, toolCall } = parseMakeshiftToolCall(responseText);
-    if (hasTool) {
-      // console.log("Detected makeshift tool call:", toolCall);
-      const toolResults = await handleToolCalls([toolCall]);
-
-      const followUpResponse = await createCompletion({
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-	  ...conversation,
-          { role: 'assistant', content: responseText },
-          ...toolResults
-        ]
-      });
-
-      return followUpResponse.choices[0]?.message.content.trim();
-    } else {
-      return responseText;
+    const response = await createCompletion({ messages });
+    if (response) {
+      return await handleToolCalling(response, conversation, originalMessage);
     }
+    return '';
   } catch (error: any) {
     if (error.message === 'Timeout') {
       return 'The AI has timed out.';
@@ -168,12 +170,27 @@ client.on('messageCreate', async (message: any) => {
   try {
     const recentMessages = await message.channel.messages.fetch({ limit: 16 });
     const conversation = recentMessages
-      .map(msg => msg.content && ({
-        role: msg.author.id === client.user.id ? 'assistant' : 'user',
-        content: msg.author.id === client.user.id ? msg.content : `<user: ${msg.author.displayName}, channel_type: ${message.channel.type}>: ${msg.content}`,
-      }))
+      .filter((msg: any) => msg.content)
+      .map((msg: any) => {
+        const isAssistant = msg.author.id === client.user?.id;
+        const content = isAssistant 
+          ? msg.content 
+          : `<user: ${msg.author.displayName || msg.author.username}, channel_type: ${message.channel.type}>: ${msg.content}`;
+        
+        const messageObj: any = {
+          role: isAssistant ? 'assistant' : 'user',
+          content: content,
+        };
+        
+        if (msg.id === message.id) {
+          messageObj.originalMessage = message;
+        }
+        
+        return messageObj;
+      })
       .filter(Boolean)
       .reverse();
+      
     message.channel.sendTyping();
     const reply = await respond(conversation);
     if (reply && reply.trim().toLowerCase() !== '<null>') {
