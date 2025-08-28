@@ -10,7 +10,7 @@ export const tool: Tool = {
         properties: {
             prompt: { type: "string", description: "The text description of the image to generate" },
             mode: { 
-                type: 'Literal["base", "canny", "depth"]', 
+                type: 'str["base", "canny", "depth"]', 
                 description: "The generation mode",
                 default: "base"
             },
