@@ -12,7 +12,7 @@ client.once('ready', async () => {
 
 async function buildContext(message: any) {
   const recentMessages = await message.channel.messages.fetch({ limit: 16 });
-  const context = recentMessages
+  const messages = recentMessages
     .filter((msg: any) => msg.content)
     .map((msg: any) => {
       const isAssistant = msg.author.id === client.user?.id;
@@ -30,7 +30,7 @@ async function buildContext(message: any) {
     .filter(Boolean)
     .reverse();
 
-  return context;
+  return messages;
 }
 
 client.on('messageCreate', async (message: any) => {
@@ -40,17 +40,16 @@ client.on('messageCreate', async (message: any) => {
   if (message.author.id === client.user.id) return;
 
   try {
-    let context = await buildContext(message);
+    let messages = await buildContext(message);
     message.channel.sendTyping();
 
     const maxChains = 12;
     for (let i = 0; i < maxChains; i++) {
-      const reply = sanitizeContent(await respond(context));
-
-      if (!reply || reply === context.at(-1)?.content) return;
+      const reply = sanitizeContent(await respond(messages, message));
+      if (!reply || reply === messages.at(-1)?.content) return;
 
       await message.channel.send(reply);
-      context.push({
+      messages.push({
         role: 'assistant',
         content: reply,
       });

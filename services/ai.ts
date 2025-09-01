@@ -50,6 +50,9 @@ export async function createCompletion(options: any) {
 
       clearTimeout(timeoutId);
       console.log(response.choices[0]);
+      if (response.choices[0]?.message.content) {
+        response.choices[0].message.content = sanitizeReasoning(response.choices[0].message.content);
+      }
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -71,15 +74,15 @@ export async function createCompletion(options: any) {
   }
 }
 
-async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletion, context: any[]) {
+async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletion, messages: any[], context: any) {
   const message = response.choices[0].message;
 
   if (message.tool_calls && message.tool_calls.length > 0) {
-    const toolResults = await handleToolCalls(message.tool_calls, context);
+    const toolResults = await handleToolCalls(message.tool_calls, messages);
     const followUpResponse = await createCompletion({
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        ...context,
+        ...messages,
         message,
         ...toolResults
       ]
@@ -91,11 +94,11 @@ async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletio
   const { hasTool, toolCall } = parseMakeshiftToolCall(responseText);
 
   if (hasTool && toolCall) {
-    const toolResults = await handleToolCalls([toolCall], context);
+    const toolResults = await handleToolCalls([toolCall], messages, context);
     const followUpResponse = await createCompletion({
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        ...context,
+        ...messages,
         { role: 'assistant', content: responseText },
         ...toolResults
       ]
@@ -106,11 +109,11 @@ async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletio
   return responseText;
 }
 
-export async function respond(context: any[]) {
+export async function respond(messageHistory: any[], context: any) {
   try {
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
-      ...context,
+      ...messageHistory,
     ];
 
     if (functionCallingSupported) {
@@ -121,7 +124,7 @@ export async function respond(context: any[]) {
           tool_choice: "auto"
         });
         if (response) {
-          return await handleToolCalling(response, context);
+          return await handleToolCalling(response, messages, context);
         }
       } catch (error: any) {
         if (error.message === 'Timeout') throw error;
@@ -132,7 +135,7 @@ export async function respond(context: any[]) {
 
     const response = await createCompletion({ messages });
     if (response) {
-      return await handleToolCalling(response, context);
+      return await handleToolCalling(response, messages, context);
     }
     return '';
   } catch (error: any) {
@@ -145,5 +148,10 @@ export async function respond(context: any[]) {
 
 export function sanitizeContent(text: string): string {
   if (!text) return '';
-  return text.replace(/<think>[\s\S]*?(<\/think>|<\\think>)/gi, '').replace(/<NULL>\s*$/gi, '').trim();
+  return text.replace(/<NULL>\s*$/gi, '').trim();
+}
+
+export function sanitizeReasoning(text: string): string {
+  if (!text) return '';
+  return text.replace(/<think>[\s\S]*?(<\/think>|<\\think>)/gi, '').trim();
 }

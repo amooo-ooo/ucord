@@ -33,7 +33,7 @@ export const toolsDescription = tools.map(tool => {
   return `${tool.name}(${parameters}): ${tool.description}`;
 }).join('\n');
 
-export async function handleToolCalls(toolCalls: any[], context: any) {
+export async function handleToolCalls(toolCalls: any[], messages: any[], context?: any) {
   return Promise.all(toolCalls.map(async (toolCall) => {
     const { name, arguments: argsString } = toolCall.function;
     const args = JSON.parse(argsString);
@@ -42,7 +42,7 @@ export async function handleToolCalls(toolCalls: any[], context: any) {
     let content;
     try {
       content = tool 
-        ? await tool.handler(args, context.at(-1).content, context)
+        ? await tool.handler(args, messages.at(-1).content, context)
         : `No handler implemented for tool: ${name}`;
     } catch (error) {
       content = `Error executing tool ${name}: ${error}`;
