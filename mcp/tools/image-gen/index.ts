@@ -42,7 +42,7 @@ export const tool: Tool = {
         },
         required: ["prompt"],
     },
-    handler: async (args: Record<string, any>, message?: string): Promise<string> => {
+    handler: async (args: Record<string, any>, message?: string, context?: any): Promise<string> => {
         let { 
             prompt,
             mode = "base",
@@ -101,8 +101,8 @@ export const tool: Tool = {
                 steps
             };
 
-            if (message.channel) {
-                await message.channel.sendTyping();
+            if (context.channel) {
+                await context.channel.sendTyping();
             }
 
             const response = await fetch(invokeUrl, {
@@ -139,7 +139,7 @@ export const tool: Tool = {
             
             const attachment = new MessageAttachment(imageBuffer, 'generated-image.png');
             
-            await message.channel.send({
+            await context.channel.send({
                 files: [attachment]
             });
 
