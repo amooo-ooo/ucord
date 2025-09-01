@@ -4,5 +4,5 @@ export interface Tool {
   name: string;
   description: string;
   parameters: FunctionDefinition['parameters'];
-  handler: (args: Record<string, any>, message?: any) => Promise<string>;
+  handler: (args: Record<string, any>, message?: string, context?: any) => Promise<string>;
 }

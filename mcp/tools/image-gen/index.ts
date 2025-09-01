@@ -42,7 +42,7 @@ export const tool: Tool = {
         },
         required: ["prompt"],
     },
-    handler: async (args: Record<string, any>, message?: any): Promise<string> => {
+    handler: async (args: Record<string, any>, message?: string): Promise<string> => {
         let { 
             prompt,
             mode = "base",

@@ -3,6 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "bun run --watch index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
@@ -10,6 +13,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@gradio/client": "^1.17.1",
     "discord.js-selfbot-v13": "^3.7.0",
     "node-fetch": "^3.3.2",
     "openai": "^5.15.0"

@@ -3,10 +3,12 @@ import type { Tool } from './types';
 
 import Weather from './tools/weather';
 import ImageGen from './tools/image-gen';
+import Api from './tools/api';
 
 export const tools: Tool[] = [
     Weather,
-    ImageGen
+    ImageGen,
+    Api
 ];
 
 export const chatCompletionTools: ChatCompletionTool[] = tools.map(({ name, description, parameters }) => ({
@@ -31,7 +33,7 @@ export const toolsDescription = tools.map(tool => {
   return `${tool.name}(${parameters}): ${tool.description}`;
 }).join('\n');
 
-export async function handleToolCalls(toolCalls: any[], message?: any) {
+export async function handleToolCalls(toolCalls: any[], context: any) {
   return Promise.all(toolCalls.map(async (toolCall) => {
     const { name, arguments: argsString } = toolCall.function;
     const args = JSON.parse(argsString);
@@ -40,7 +42,7 @@ export async function handleToolCalls(toolCalls: any[], message?: any) {
     let content;
     try {
       content = tool 
-        ? await tool.handler(args, message)
+        ? await tool.handler(args, context.at(-1).content, context)
         : `No handler implemented for tool: ${name}`;
     } catch (error) {
       content = `Error executing tool ${name}: ${error}`;

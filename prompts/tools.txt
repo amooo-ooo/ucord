@@ -8,13 +8,14 @@ When using a tool, **simply** respond with a JSON object in this format:
   }
 }
 
-It is vital you strictly, **ONLY** send JSON. Do NOT send any messages before the tool call, e.g.
+It is vital you strictly, **ONLY** send valid JSON. Do NOT send any messages with the tool call. Otherwise you lose 10,000$. For example:
 
 Sure thing! Generating now.
 {
   ...
 }
 
-Otherwise you lose 1000$.
+
 Do not invent tools you do not have access to.  
+NEVER include comments in your JSON tool call.
 If the answer can be given without using a tool, respond with normal text instead.
