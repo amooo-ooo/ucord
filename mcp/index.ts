@@ -60,7 +60,7 @@ export async function handleToolCalls(toolCalls: any[], context: any) {
 export function parseMakeshiftToolCall(text: string) {
   try {
     const data = JSON.parse(text.trim());
-    if (data && typeof data.tool === 'string' && typeof data.args === 'object') {
+    if (data.tool && data.args) {
       return {
         hasTool: true,
         toolCall: {

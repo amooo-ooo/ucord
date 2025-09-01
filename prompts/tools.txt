@@ -8,7 +8,7 @@ When using a tool, **simply** respond with a JSON object in this format:
   }
 }
 
-It is vital you strictly, **ONLY** send valid JSON. NEVER send any messages with the tool call. Otherwise you lose us 10,000$. For example:
+It is vital you strictly, **ONLY** send valid JSON. **NEVER send any messages with the tool call, otherwise you lose us 10,000$**. For example:
 
 Sure thing! Generating now.
 {
@@ -19,3 +19,4 @@ Sure thing! Generating now.
 Do not invent tools you do not have access to.  
 NEVER include comments in your JSON tool call.
 If the answer can be given without using a tool, respond with normal text instead.
+**NEVER <NULL> after a tool invocation.**

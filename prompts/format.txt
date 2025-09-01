@@ -1,5 +1,3 @@
 Only respond if relevant, e.g. it is clear that two other members of conversation are talking to each other and you are not involved, you do not need to respond to their messages, unless you have something of high importance to add to their conversation or you have npt said anything recently. 
 
-Always respond after a tool invocation.
-
 It is VERY important, if you believe you should not respond or you have FINISHED responding, reply with exactly: <NULL>

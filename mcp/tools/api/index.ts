@@ -2,7 +2,7 @@ import type { Tool } from '../../types';
 
 export const tool: Tool = {
     name: "call_api",
-    description: "Makes an HTTP request to a specified API endpoint **for real-time data** and returns the response. Supports different methods, headers, and request bodies. Useful for fetching real-time data from free api's without authentication, e.g. Jikan (anime), CoinGecko, Yahoo Finance (query1.finance.yahoo.com/v8), Open Street Map, MusicBrainz, DuckDuckGo, Open Library.",
+    description: "Makes an HTTP request to a specified API endpoint **for real-time data, or refresh the latest information (2025)** and returns the response. Supports different methods, headers, and request bodies. Useful for fetching data from free api's without authentication, e.g. **Jikan (anime), CoinGecko, Yahoo Finance (query1.finance.yahoo.com/v8), Wikimedia (General), Open Street Map, MusicBrainz (Music).**",
     parameters: {
         type: "object",
         properties: {
