@@ -3,11 +3,13 @@ import type { Tool } from './types';
 
 import Weather from './tools/weather';
 import ImageGen from './tools/image-gen';
+// import Api from './tools/api';
 import { discordReply, discordReact } from './tools/discord';
 
 export const tools: Tool[] = [
     Weather,
     ImageGen,
+    // Api,
     discordReply,
     discordReact
 ];

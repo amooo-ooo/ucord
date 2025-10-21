@@ -1,111 +1,127 @@
-import { Client } from 'discord.js-selfbot-v13';
+import { Client, Message } from 'discord.js-selfbot-v13';
 import { respond, sanitizeContent } from './services/ai';
 
 const client = new Client();
 
 client.once('ready', async () => {
-  if (client.user) {
-    await client.user.setPresence({ status: 'online' });
-    console.log(`${client.user.username} is ready!`);
-  }
+    if (client.user) {
+        await client.user.setPresence({ status: 'online' });
+        console.log(`${client.user.username} is ready!`);
+    }
 });
 
 function formatTimestamp(unixTimestamp: number): string {
-  const date = new Date(unixTimestamp);
-  
-  const options: Intl.DateTimeFormatOptions = {
-    day: '2-digit',    
-    month: 'short',
-    year: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: true,      
-  };
-
-  return date.toLocaleString('en-GB', options).replace(',', '');
+    const date = new Date(unixTimestamp);
+    const options: Intl.DateTimeFormatOptions = {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+    };
+    return date.toLocaleString('en-GB', options).replace(',', '');
 }
 
-function formatSingleMessage(msg: any): string {
-  return `<message id="${msg.id}" timestamp="${formatTimestamp(msg.createdTimestamp)}">${msg.content}</message>`;
-}
+async function formatSingleMessage(msg: Message, recentMessagesMap: Map<string, Message>): Promise<string> {
+    const authorName = msg.author.displayName || msg.author.username;
+    const timestamp = formatTimestamp(msg.createdTimestamp);
 
-function formatUserGroup(author: any, channel: any, messages: string): string {
-  const user = author.displayName || author.username;
-  return `<user name="${user}" channel_type="${channel.type}">\n${messages}\n</user>`;
-}
+    if (msg.reference && msg.reference.messageId) {
+        const originalMsgId = msg.reference.messageId;
+        let originalMsg: Message | undefined;
+        let content: string;
+        let originalAuthorName = 'Unknown User';
 
-async function buildContext(message: any): Promise<any[]> {
-  const recentMessages = await message.channel.messages.fetch({ limit: 16 });
+        if (recentMessagesMap.has(originalMsgId)) {
+            originalMsg = recentMessagesMap.get(originalMsgId);
+            let snippet = originalMsg.content.substring(0, 80);
+            if (originalMsg.content.length > 80) snippet += '...';
+            content = snippet;
+        } else {
+            try {
+                originalMsg = await msg.channel.messages.fetch(originalMsgId);
+                content = originalMsg.content;
+            } catch (error) {
+                console.error(`Failed to fetch out-of-context message ID ${originalMsgId}:`, error);
+                content = "[Message content not available]";
+            }
+        }
 
-  const orderedMessages = recentMessages
-    .filter((msg: any) => msg.content)
-    .reverse();
-
-  if (orderedMessages.length === 0) {
-    return [];
-  }
-
-  const groupedByUser = orderedMessages.reduce((acc, msg) => {
-    const lastGroup = acc.length > 0 ? acc[acc.length - 1] : null;
-    const isAssistant = msg.author.id === client.user?.id;
-
-    if (lastGroup && lastGroup.author.id === msg.author.id) {
-      lastGroup.messages.push(msg);
-    } else {
-      acc.push({
-        author: msg.author,
-        channel: msg.channel,
-        isAssistant: isAssistant,
-        messages: [msg],
-      });
-    }
-    return acc;
-  }, []);
-
-  const finalContext = groupedByUser.map(group => {
-    const role = group.isAssistant ? 'assistant' : 'user';
-
-    let content;
-    if (role === 'assistant') {
-      content = group.messages[0].content;
-    } else {
-      const formattedMessageLines = group.messages
-        .map(formatSingleMessage)
-        .join('\n');
+        if (originalMsg) {
+            originalAuthorName = originalMsg.author.displayName || originalMsg.author.username;
+        }
         
-      content = formatUserGroup(group.author, group.channel, formattedMessageLines);
+        const replyBlock = `\n  <reply to_user="${originalAuthorName}" to_message_id="${originalMsgId}">\n    ${content}\n  </reply>`;
+        return `<message id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${replyBlock}\n  ${msg.content}\n</message>`;
+    } else {
+        return `<message id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${msg.content}</message>`;
     }
-
-    return { role, content };
-  });
-
-  return finalContext;
 }
 
-client.on('messageCreate', async (message: any) => {
-  if (!client.user || (process.env.CHANNEL && message.channel.id !== process.env.CHANNEL)) return;
-  console.log(`${message.member?.displayName || message.author.username}: ${message.content}`);
+function formatUserGroup(messages: string): string {
+    return `<user>\n${messages}\n</user>`;
+}
 
-  if (message.author.id === client.user.id) return;
+async function buildContext(message: Message): Promise<any[]> {
+    const recentMessages = await message.channel.messages.fetch({ limit: 16 });
+    const orderedMessages = recentMessages.filter((msg) => msg.content).reverse();
 
-  try {
-    let messages = await buildContext(message);
-    message.channel.sendTyping();
+    if (orderedMessages.length === 0) return [];
 
-    const maxChains = 12;
-    for (let i = 0; i < maxChains; i++) {
-      const reply = sanitizeContent(await respond(messages, message));
-      if (!reply || reply === messages.at(-1)?.content) return;
+    const recentMessagesMap = new Map(orderedMessages.map(msg => [msg.id, msg]));
 
-      await message.channel.send(reply);
-      messages.push({
-        role: 'assistant',
-        content: reply,
-      });
+    const groupedByUser = orderedMessages.reduce((acc: any[], msg) => {
+        const lastGroup = acc.length > 0 ? acc[acc.length - 1] : null;
+        const isAssistant = msg.author.id === client.user?.id;
+
+        if (lastGroup && !lastGroup.isAssistant && lastGroup.messages[0].author.id === msg.author.id) {
+            lastGroup.messages.push(msg);
+        } else {
+            acc.push({ isAssistant, messages: [msg] });
+        }
+        return acc;
+    }, []);
+
+    const finalContext = await Promise.all(groupedByUser.map(async (group) => {
+        const role = group.isAssistant ? 'assistant' : 'user';
+        let content;
+
+        if (role === 'assistant') {
+            content = group.messages[0].content;
+        } else {
+            const formattedMessageLines = await Promise.all(
+                group.messages.map(msg => formatSingleMessage(msg, recentMessagesMap))
+            );
+            content = formatUserGroup(formattedMessageLines.join('\n'));
+        }
+        return { role, content };
+    }));
+
+    return finalContext;
+}
+
+client.on('messageCreate', async (message: Message) => {
+    if (!client.user || (process.env.CHANNEL && message.channel.id !== process.env.CHANNEL)) return;
+    
+    if (message.author.id === client.user.id) return;
+
+    console.log(`${message.member?.displayName || message.author.username}: ${message.content}`);
+
+    try {
+        let messages = await buildContext(message);
+        await message.channel.sendTyping();
+
+        const maxChains = 12;
+        for (let i = 0; i < maxChains; i++) {
+            const reply = sanitizeContent(await respond(messages, message));
+            if (!reply || reply === messages.at(-1)?.content) return;
+
+            await message.channel.send(reply);
+            messages.push({
+                role: 'assistant',
+                content: reply,
+            });
+        }
+    } catch (err) {
+        console.error('Error getting AI response:', err);
     }
-  } catch (err) {
-    console.error('Error getting AI response:', err);
-  }
 });
 
 client.login(process.env.AUTH_TOKEN);
