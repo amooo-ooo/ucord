@@ -41,7 +41,7 @@ export async function createCompletion(options: any) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
-    //   console.log(options.messages);
+      // console.log(options.messages);
       const response = await openai.chat.completions.create({
         ...MODEL_SETTINGS[model],
         ...options,
@@ -50,8 +50,8 @@ export async function createCompletion(options: any) {
 
       clearTimeout(timeoutId);
       console.log(response.choices[0]);
-      if (response.choices[0]?.message.content) {
-        response.choices[0].message.content = sanitizeReasoning(response.choices[0].message.content);
+      if (response.choices[0]?.message) {
+        response.choices[0].message.content = sanitizeReasoning(response.choices[0].message);
       }
       return response;
     } catch (error: any) {
@@ -148,10 +148,11 @@ export async function respond(messageHistory: any[], context: any) {
 
 export function sanitizeContent(text: string): string {
   if (!text) return '';
-  return text.replace(/<NULL>\s*$/gi, '').trim();
+  return text.replace(/<NULL>\s*$/, '').trim();
 }
 
-export function sanitizeReasoning(text: string): string {
-  if (!text) return '';
-  return text.replace(/<think>[\s\S]*?(<\/think>|<\\think>)/gi, '').trim();
+export function sanitizeReasoning(text: OpenAI.Chat.Completions.ChatCompletionMessage): string {
+  let response = text.content
+  if (!response && text.reasoning_content) response = sanitizeContent(text.reasoning_content);
+  return response?.replace(/<think>[\s\S]*?(<\/think>|<\\think>)/gi, '').trim() || '';
 }
