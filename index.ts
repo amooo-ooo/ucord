@@ -10,27 +10,76 @@ client.once('ready', async () => {
   }
 });
 
-async function buildContext(message: any) {
+function formatTimestamp(unixTimestamp: number): string {
+  const date = new Date(unixTimestamp);
+  
+  const options: Intl.DateTimeFormatOptions = {
+    day: '2-digit',    
+    month: 'short',
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true,      
+  };
+
+  return date.toLocaleString('en-GB', options).replace(',', '');
+}
+
+function formatSingleMessage(msg: any): string {
+  return `<message id="${msg.id}" timestamp="${formatTimestamp(msg.createdTimestamp)}">${msg.content}</message>`;
+}
+
+function formatUserGroup(author: any, channel: any, messages: string): string {
+  const user = author.displayName || author.username;
+  return `<user name="${user}" channel_type="${channel.type}">\n${messages}\n</user>`;
+}
+
+async function buildContext(message: any): Promise<any[]> {
   const recentMessages = await message.channel.messages.fetch({ limit: 16 });
-  const messages = recentMessages
+
+  const orderedMessages = recentMessages
     .filter((msg: any) => msg.content)
-    .map((msg: any) => {
-      const isAssistant = msg.author.id === client.user?.id;
-      const content = isAssistant
-        ? msg.content
-        : `<user: ${msg.author.displayName || msg.author.username}, channel_type: ${msg.channel.type}>: ${msg.content}`;
-
-      const messageObj: any = {
-        role: isAssistant ? 'assistant' : 'user',
-        content: content,
-      };
-
-      return messageObj;
-    })
-    .filter(Boolean)
     .reverse();
 
-  return messages;
+  if (orderedMessages.length === 0) {
+    return [];
+  }
+
+  const groupedByUser = orderedMessages.reduce((acc, msg) => {
+    const lastGroup = acc.length > 0 ? acc[acc.length - 1] : null;
+    const isAssistant = msg.author.id === client.user?.id;
+
+    if (lastGroup && lastGroup.author.id === msg.author.id) {
+      lastGroup.messages.push(msg);
+    } else {
+      acc.push({
+        author: msg.author,
+        channel: msg.channel,
+        isAssistant: isAssistant,
+        messages: [msg],
+      });
+    }
+    return acc;
+  }, []);
+
+  const finalContext = groupedByUser.map(group => {
+    const role = group.isAssistant ? 'assistant' : 'user';
+
+    let content;
+    if (role === 'assistant') {
+      content = group.messages[0].content;
+    } else {
+      const formattedMessageLines = group.messages
+        .map(formatSingleMessage)
+        .join('\n');
+        
+      content = formatUserGroup(group.author, group.channel, formattedMessageLines);
+    }
+
+    return { role, content };
+  });
+
+  return finalContext;
 }
 
 client.on('messageCreate', async (message: any) => {

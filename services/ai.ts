@@ -41,7 +41,6 @@ export async function createCompletion(options: any) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
-      // console.log(options.messages);
       const response = await openai.chat.completions.create({
         ...MODEL_SETTINGS[model],
         ...options,
@@ -49,10 +48,10 @@ export async function createCompletion(options: any) {
       });
 
       clearTimeout(timeoutId);
-      console.log(response.choices[0]);
       if (response.choices[0]?.message) {
         response.choices[0].message.content = sanitizeReasoning(response.choices[0].message);
       }
+      console.log(response.choices[0]?.message);
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -78,7 +77,7 @@ async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletio
   const message = response.choices[0].message;
 
   if (message.tool_calls && message.tool_calls.length > 0) {
-    const toolResults = await handleToolCalls(message.tool_calls, messages);
+    const toolResults = await handleToolCalls(message.tool_calls, messages, context);
     const followUpResponse = await createCompletion({
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
@@ -90,7 +89,7 @@ async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletio
     return followUpResponse?.choices[0]?.message?.content?.trim() || '';
   }
 
-  const responseText = message.content?.trim() || '';
+  const responseText = message.content?.trim() || message.reasoning_content?.trim() || '';
   const { hasTool, toolCall } = parseMakeshiftToolCall(responseText);
 
   if (hasTool && toolCall) {

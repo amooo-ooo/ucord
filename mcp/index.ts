@@ -3,12 +3,13 @@ import type { Tool } from './types';
 
 import Weather from './tools/weather';
 import ImageGen from './tools/image-gen';
-import Api from './tools/api';
+import { discordReply, discordReact } from './tools/discord';
 
 export const tools: Tool[] = [
     Weather,
     ImageGen,
-    Api
+    discordReply,
+    discordReact
 ];
 
 export const chatCompletionTools: ChatCompletionTool[] = tools.map(({ name, description, parameters }) => ({
@@ -57,24 +58,34 @@ export async function handleToolCalls(toolCalls: any[], messages: any[], context
   }));
 }
 
-export function parseMakeshiftToolCall(text: string) {
-  try {
-    const data = JSON.parse(text.trim());
-    if (data.tool && data.args) {
-      return {
-        hasTool: true,
-        toolCall: {
-          id: `makeshift-${Date.now()}`,
-          function: {
-            name: data.tool,
-            arguments: JSON.stringify(data.args)
-          }
-        },
-        processedText: `[Using tool: ${data.tool}]`
-      };
-    }
-  } catch {
-    // Ignore invalid JSON
+export function parseMakeshiftToolCall(text: string): { hasTool: boolean; toolCall: any | null } {
+  const startIndex = text.indexOf('{');
+  const endIndex = text.lastIndexOf('}');
+
+  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+    return { hasTool: false, toolCall: null };
   }
-  return { hasTool: false, toolCall: undefined, processedText: text };
+
+  const potentialJson = text.substring(startIndex, endIndex + 1);
+
+  try {
+    const parsed = JSON.parse(potentialJson);
+
+    if (parsed.tool && typeof parsed.tool === 'string' && parsed.args && typeof parsed.args === 'object') {
+      const toolCall = {
+        id: `makeshift-${Date.now()}`,
+        type: 'function',
+        function: {
+          name: parsed.tool,
+          arguments: JSON.stringify(parsed.args),
+        },
+      };
+      console.log(`Found and parsed makeshift tool call: ${parsed.tool}`);
+      return { hasTool: true, toolCall: toolCall };
+    }
+  } catch (error) {
+    return { hasTool: false, toolCall: null };
+  }
+
+  return { hasTool: false, toolCall: null };
 }
