@@ -8,13 +8,7 @@ When using a tool, **simply** respond with a JSON object in this format:
   }
 }
 
-It is vital you strictly, **ONLY** send the valid JSON. For example:
-
-Sure thing! Generating now.
-{
-  ...
-}
-
+It is vital you strictly, **ONLY** send valid JSON for tool calls, not XML. 
 Do not invent tools you do not have access to.  
 NEVER include comments in your JSON tool call.
 Do not describe your tool call within your response, e.g. reacting to <message_id> with ...
