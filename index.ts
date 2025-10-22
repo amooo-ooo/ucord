@@ -49,9 +49,9 @@ async function formatSingleMessage(msg: Message, recentMessagesMap: Map<string, 
         }
         
         const replyBlock = `\n  <reply to_user="${originalAuthorName}" to_message_id="${originalMsgId}">\n    ${content}\n  </reply>`;
-        return `<message id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${replyBlock}\n  ${msg.content}\n</message>`;
+        return `<msg id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${replyBlock}\n  ${msg.content}\n</msg>`;
     } else {
-        return `<message id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${msg.content}</message>`;
+        return `<msg id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${msg.content}</msg>`;
     }
 }
 

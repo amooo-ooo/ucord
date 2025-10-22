@@ -9,11 +9,11 @@ export const discordReply: Tool = {
         properties: {
             id: {
                 type: "string",
-                description: "The ID of the message to reply to."
+                description: "ID of message to reply to."
             },
             message: {
                 type: "string",
-                description: "The text content to send as the reply."
+                description: "Text content to send as the reply."
             }
         },
         required: ["id", "message"],
@@ -48,17 +48,17 @@ export const discordReply: Tool = {
 
 export const discordReact: Tool = {
     name: "react_to_message",
-    description: "React to a specific message with one or more standard unicode emojis.",
+    description: "React to a specific message with one or more standard unicode emojis. Does not work with ascii emoticons.",
     parameters: {
         type: "object",
         properties: {
             id: {
                 type: "string",
-                description: "The ID of the message to react to."
+                description: "ID of message to react to."
             },
             reactions: {
                 type: "array",
-                description: "An array of unicode emojis to use as reactions.",
+                description: "Array of unicode emojis as reactions.",
                 items: {
                     type: "string"
                 }

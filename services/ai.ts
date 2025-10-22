@@ -49,9 +49,9 @@ export async function createCompletion(options: any) {
 
       clearTimeout(timeoutId);
       if (response.choices[0]?.message) {
+        console.log(response.choices[0]?.message);
         response.choices[0].message.content = sanitizeReasoning(response.choices[0].message);
       }
-      console.log(response.choices[0]?.message);
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -93,6 +93,9 @@ async function handleToolCalling(response: OpenAI.Chat.Completions.ChatCompletio
   const { hasTool, toolCall } = parseMakeshiftToolCall(responseText);
 
   if (hasTool && toolCall) {
+    const leftover = responseText.replace(/{[\s\S]*?"tool"[\s\S]*}/g, '').trim();
+    if (leftover) await context.channel.send(leftover);
+
     const toolResults = await handleToolCalls([toolCall], messages, context);
     const followUpResponse = await createCompletion({
       messages: [

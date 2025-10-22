@@ -5,10 +5,12 @@ import Weather from './tools/weather';
 import ImageGen from './tools/image-gen';
 // import Api from './tools/api';
 import { discordReply, discordReact } from './tools/discord';
+import { searchGifs } from './tools/tenor';
 
 export const tools: Tool[] = [
     Weather,
     ImageGen,
+    searchGifs,
     // Api,
     discordReply,
     discordReact
