@@ -19,11 +19,19 @@ const MODEL_SETTINGS = [
     top_p: 0.95,
     max_tokens: 65536,
     stream: false,
+  }, 
+  {
+    model: "meta/llama-4-maverick-17b-128e-instruct",
+    temperature: 0.50,
+    top_p: 1.00,
+    max_tokens: 4096,
+    stream: false
   }
 ];
 let functionCallingSupported = false;
 
 let model = 0;
+let visionModelSettings = MODEL_SETTINGS[2];
 const timeout = 10000;
 const switchOnTimeout = false;
 
@@ -31,6 +39,34 @@ const openai = new OpenAI({
   baseURL: 'https://integrate.api.nvidia.com/v1',
   apiKey: process.env.NVIDIA_API_KEY,
 });
+
+export async function describeImage(base64Image: string, contentType: string): Promise<string> {
+  console.log("Requesting image description from vision model...");
+  try {
+    const response = await openai.chat.completions.create({
+      ...visionModelSettings,
+      messages: [
+        {
+          role: "user",
+          content: `Describe in great detail the contents of the following image including any text. Be objective and comprehensive. <img src="data:${contentType};base64,${base64Image}" />`
+        }
+      ],
+    });
+
+    const description = response.choices[0]?.message?.content?.trim();
+    if (!description) {
+      throw new Error("Received an empty description from the vision model.");
+    }
+    
+    console.log("Successfully generated image description.");
+    console.log(`Image Description: ${description}`);
+    return description;
+
+  } catch (error) {
+    console.error("Error generating image description:", error);
+    return "[Image description failed to generate]";
+  }
+}
 
 export async function createCompletion(options: any) {
   let attempts = 0;

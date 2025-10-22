@@ -1,7 +1,9 @@
 import { Client, Message } from 'discord.js-selfbot-v13';
-import { respond, sanitizeContent } from './services/ai';
+import { respond, sanitizeContent, describeImage } from './services/ai';
 
 const client = new Client();
+
+const imageDescriptionCache = new Map<string, string>();
 
 client.once('ready', async () => {
     if (client.user) {
@@ -20,8 +22,44 @@ function formatTimestamp(unixTimestamp: number): string {
 }
 
 async function formatSingleMessage(msg: Message, recentMessagesMap: Map<string, Message>): Promise<string> {
-    const authorName = msg.author.displayName || msg.author.username;
     const timestamp = formatTimestamp(msg.createdTimestamp);
+    const messageText = msg.content || '';
+    let attachmentContent = '';
+
+    if (msg.attachments.size > 0) {
+        const imageAttachment = msg.attachments.find(att => att.contentType?.startsWith('image/'));
+        if (imageAttachment && imageAttachment.contentType) {
+            
+            const cacheKey = `${msg.id}-${imageAttachment.id}`;
+            let description = '';
+
+            if (imageDescriptionCache.has(cacheKey)) {
+                description = imageDescriptionCache.get(cacheKey)!;
+                console.log(`[Cache] HIT for attachment ${imageAttachment.id}. Using cached description.`);
+            } else {
+                console.log(`[Cache] MISS for attachment ${imageAttachment.id}. Fetching new description...`);
+                try {
+                    const response = await fetch(imageAttachment.url);
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    const imageArrayBuffer = await response.arrayBuffer();
+                    const base64Image = Buffer.from(imageArrayBuffer).toString('base64');
+                    
+                    description = await describeImage(base64Image, imageAttachment.contentType);
+                    
+                    imageDescriptionCache.set(cacheKey, description);
+                    console.log(`[Cache] SET for attachment ${imageAttachment.id}.`);
+
+                } catch (error) {
+                    console.error(`Failed to process image attachment:`, error);
+                    description = "[Image failed to process]";
+                }
+            }
+            
+            attachmentContent = `\n<attachment type="${imageAttachment.contentType}">${description}</attachment>`;
+        }
+    }
+
+    const fullContent = `${messageText}${attachmentContent}`;
 
     if (msg.reference && msg.reference.messageId) {
         const originalMsgId = msg.reference.messageId;
@@ -31,8 +69,8 @@ async function formatSingleMessage(msg: Message, recentMessagesMap: Map<string, 
 
         if (recentMessagesMap.has(originalMsgId)) {
             originalMsg = recentMessagesMap.get(originalMsgId);
-            let snippet = originalMsg.content.substring(0, 80);
-            if (originalMsg.content.length > 80) snippet += '...';
+            let snippet = (originalMsg.content || '').substring(0, 80);
+            if ((originalMsg.content || '').length > 80) snippet += '...';
             content = snippet;
         } else {
             try {
@@ -48,20 +86,20 @@ async function formatSingleMessage(msg: Message, recentMessagesMap: Map<string, 
             originalAuthorName = originalMsg.author.displayName || originalMsg.author.username;
         }
         
-        const replyBlock = `\n  <reply to_user="${originalAuthorName}" to_message_id="${originalMsgId}">\n    ${content}\n  </reply>`;
-        return `<msg id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${replyBlock}\n  ${msg.content}\n</msg>`;
+        const replyBlock = `\n  <reply to_user="${originalAuthorName}" to_message_id="${originalMsgId}">\n${content}\n  </reply>`;
+        return `<msg id="${msg.id}" timestamp="${timestamp}">${replyBlock}\n${fullContent}\n</msg>`;
     } else {
-        return `<msg id="${msg.id}" author="${authorName}" timestamp="${timestamp}">${msg.content}</msg>`;
+        return `<msg id="${msg.id}" timestamp="${timestamp}">${fullContent}</msg>`;
     }
 }
 
-function formatUserGroup(messages: string): string {
-    return `<user>\n${messages}\n</user>`;
+function formatUserGroup(channel_type: string, author: string, messages: string): string {
+    return `<user name="${author}" channel_type="${channel_type}">\n${messages}\n</user>`;
 }
 
 async function buildContext(message: Message): Promise<any[]> {
     const recentMessages = await message.channel.messages.fetch({ limit: 16 });
-    const orderedMessages = recentMessages.filter((msg) => msg.content).reverse();
+    const orderedMessages = recentMessages.filter((msg) => msg.content || msg.attachments.size > 0).reverse();
 
     if (orderedMessages.length === 0) return [];
 
@@ -89,7 +127,9 @@ async function buildContext(message: Message): Promise<any[]> {
             const formattedMessageLines = await Promise.all(
                 group.messages.map(msg => formatSingleMessage(msg, recentMessagesMap))
             );
-            content = formatUserGroup(formattedMessageLines.join('\n'));
+            const author = group.messages[0].author.displayName ?? group.messages[0].author.username;
+            const channel_type = message.channel.type;
+            content = formatUserGroup(channel_type,author, formattedMessageLines.join('\n'));
         }
         return { role, content };
     }));
@@ -100,7 +140,7 @@ async function buildContext(message: Message): Promise<any[]> {
 client.on('messageCreate', async (message: Message) => {
     if (!client.user || (process.env.CHANNEL && message.channel.id !== process.env.CHANNEL)) return;
     
-    if (message.author.id === client.user.id) return;
+    if (message.author.id === client.user.id || (message.content === "" && message.attachments.size === 0)) return;
 
     console.log(`${message.member?.displayName || message.author.username}: ${message.content}`);
 
@@ -108,7 +148,7 @@ client.on('messageCreate', async (message: Message) => {
         let messages = await buildContext(message);
         await message.channel.sendTyping();
 
-        const maxChains = 12;
+        const maxChains = 6;
         for (let i = 0; i < maxChains; i++) {
             const reply = sanitizeContent(await respond(messages, message));
             if (!reply || reply === messages.at(-1)?.content) return;
