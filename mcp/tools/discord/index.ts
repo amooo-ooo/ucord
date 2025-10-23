@@ -21,9 +21,9 @@ export const discordReply: Tool = {
         }
 
         try {
-            const fetchedMessages = await context.channel.messages.fetch({ around: id, limit: 1 });
-            const targetMessage = fetchedMessages.first();
-            
+            const messageCollection = await context.channel.messages.fetch(id);
+            const targetMessage = messageCollection.first();
+
             if (!targetMessage) {
                 return `Error: Message with ID ${id} could not be found.`;
             }
@@ -64,13 +64,13 @@ export const discordReact: Tool = {
         }
 
         try {
-            const fetchedMessages = await context.channel.messages.fetch({ around: id, limit: 1 });
-            const targetMessage = fetchedMessages.first();
+            const messageCollection = await context.channel.messages.fetch(id);
+            const targetMessage = messageCollection.first();
 
             if (!targetMessage) {
                 return `Error: Message with ID ${id} could not be found.`;
             }
-
+            
             for (const emoji of reactions) {
                 await targetMessage.react(emoji);
             }
