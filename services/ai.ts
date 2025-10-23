@@ -66,37 +66,23 @@ export async function createCompletion(options: any) {
   }
 }
 
-// *** THIS IS THE CORRECTED FUNCTION ***
 async function handleResponse(response: OpenAI.Chat.Completions.ChatCompletion | null, messages: any[], context: any): Promise<string> {
   if (!response) return '';
   const message = response.choices[0].message;
   console.log("Received model response:", message);
   const responseText = sanitizeReasoning(message);
+  const { hasTools, toolCalls } = parseMakeshiftToolCalls(responseText);
 
-  const { hasTools, toolCalls, leftoverText } = parseMakeshiftToolCalls(responseText);
-
-  // This is for tool calls. If tools are present, process them.
   if (hasTools && toolCalls) {
     console.log("Handling makeshift tool calls...");
-
-    // If there's any text before the tool call, send it as a preamble.
-    if (leftoverText && context.channel) {
-      await context.channel.send(leftoverText);
-    }
-
     const toolResults = await handleToolCalls(toolCalls, messages, context);
     const followUpMessages = [...messages, { role: 'assistant', content: responseText }, ...toolResults];
     const followUpResponse = await createCompletion({ messages: followUpMessages });
-    
-    // The final result of the tool chain will be returned by the recursive call.
     return handleResponse(followUpResponse, followUpMessages, context);
   }
   
-  // If we get here, it means NO tools were called.
-  // We return the clean text to the main loop to be sent.
-  return leftoverText;
+  return responseText;
 }
-
 
 export async function respond(messageHistory: any[], context: any): Promise<string> {
   const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...messageHistory];
