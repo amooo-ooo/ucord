@@ -20,6 +20,7 @@
     "mathjax-node": "^2.1.1",
     "node-fetch": "^3.3.2",
     "openai": "^5.15.0",
+    "playwright": "^1.56.1",
     "sharp": "^0.34.4"
   }
 }
