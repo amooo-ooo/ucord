@@ -1,16 +1,13 @@
-When using a tool, **simply** respond with a JSON object in this format:
+When using a tool, **simply** respond with a XML object in this format:
 
-{
-  "tool": "tool_name",
-  "args": {
-    "arg_name": "value",
-    ...
-  }
-}
+<tool_name arg1="value" arg2="value"/>
 
-It is vital you strictly, **ONLY** send valid JSON for tool calls, not XML. 
-Do not invent tools you do not have access to.  
-NEVER include comments in your JSON tool call.
-Do not describe your tool call within your response, e.g. reacting to <message_id> with ...
+For example:
+
+<web_search query="weather today chch nz"/>
+<react_to_message id="1430851443757416488" reactions="['👋']"/>
+
+You can call multiple tools at once by listing multiple XML objects.
+Do not invent tools you don't have.
 If the answer can be given without using a tool, respond with normal text instead.
 **NEVER <NULL> after a tool invocation.**

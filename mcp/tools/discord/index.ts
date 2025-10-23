@@ -1,5 +1,4 @@
 import type { Tool } from '../../types';
-import type { Message } from 'discord.js-selfbot-v13';
 
 export const discordReply: Tool = {
     name: "specifically_reply_to_message",
@@ -7,37 +6,32 @@ export const discordReply: Tool = {
     parameters: {
         type: "object",
         properties: {
-            id: {
-                type: "string",
-                description: "ID of message to reply to."
-            },
-            message: {
-                type: "string",
-                description: "Text content to send as the reply."
-            }
+            id: { type: "string", description: "ID of message to reply to." },
+            message: { type: "string", description: "Text content to send as the reply." }
         },
         required: ["id", "message"],
     },
     handler: async (args: Record<string, any>, originalMessage?: string, context?: any): Promise<string> => {
         const { id, message: replyContent } = args;
-
         if (!context || !context.channel) {
-            return "Error: Channel context not provided. Cannot fetch or reply to the message.";
+            return "Error: Channel context not provided.";
         }
         if (!id || !replyContent) {
             return "Error: Both 'id' and 'message' parameters are required.";
         }
 
         try {
-            const targetMessage: Message = await context.channel.messages.fetch(id);
+            const fetchedMessages = await context.channel.messages.fetch({ around: id, limit: 1 });
+            const targetMessage = fetchedMessages.first();
+            
+            if (!targetMessage) {
+                return `Error: Message with ID ${id} could not be found.`;
+            }
 
             await targetMessage.reply(replyContent);
-
-            return `Successfully replied to message ID ${id} with content: "${replyContent}"`;
-
+            return `Successfully replied to message ID ${id}`;
         } catch (error) {
             console.error("Failed to reply to message:", error);
-
             if (error instanceof Error) {
                 return `Failed to reply to message ID ${id}: ${error.message}`;
             }
@@ -52,25 +46,15 @@ export const discordReact: Tool = {
     parameters: {
         type: "object",
         properties: {
-            id: {
-                type: "string",
-                description: "ID of message to react to."
-            },
-            reactions: {
-                type: "array",
-                description: "Array of unicode emojis as reactions.",
-                items: {
-                    type: "string"
-                }
-            }
+            id: { type: "string", description: "ID of message to react to." },
+            reactions: { type: "array", description: "Array of unicode emojis as reactions.", items: { type: "string" } }
         },
         required: ["id", "reactions"],
     },
     handler: async (args: Record<string, any>, originalMessage?: string, context?: any): Promise<string> => {
         const { id, reactions } = args;
-
         if (!context || !context.channel) {
-            return "Error: Channel context not provided. Cannot fetch or react to the message.";
+            return "Error: Channel context not provided.";
         }
         if (!id || !reactions) {
             return "Error: Both 'id' and 'reactions' parameters are required.";
@@ -80,21 +64,22 @@ export const discordReact: Tool = {
         }
 
         try {
-            const targetMessage: Message = await context.channel.messages.fetch(id);
+            const fetchedMessages = await context.channel.messages.fetch({ around: id, limit: 1 });
+            const targetMessage = fetchedMessages.first();
 
-            // React with each emoji one by one to avoid rate-limiting issues.
+            if (!targetMessage) {
+                return `Error: Message with ID ${id} could not be found.`;
+            }
+
             for (const emoji of reactions) {
                 await targetMessage.react(emoji);
             }
 
             const emojiList = reactions.join(', ');
             return `Successfully reacted to message ID ${id} with emojis: ${emojiList}`;
-
         } catch (error) {
             console.error("Failed to react to message:", error);
-
             if (error instanceof Error) {
-                // This could fail due to an invalid emoji, an unknown message ID, or missing permissions.
                 return `Failed to react to message ID ${id}: ${error.message}`;
             }
             return `Failed to react to message ID ${id}: An unknown error occurred.`;

@@ -1,9 +1,6 @@
-import type { ChatCompletionTool } from 'openai/resources';
 import type { Tool } from './types';
-
-import Weather from './tools/weather';
+import { XMLParser } from 'fast-xml-parser';
 import ImageGen from './tools/image-gen';
-// import Api from './tools/api';
 import { discordReply, discordReact } from './tools/discord';
 import { searchGifs } from './tools/tenor';
 import { webSearch } from './tools/web';
@@ -14,14 +11,7 @@ export const tools: Tool[] = [
   webSearch,
   discordReply,
   discordReact
-  // Weather,
-  // Api,
 ];
-
-export const chatCompletionTools: ChatCompletionTool[] = tools.map(({ name, description, parameters }) => ({
-  type: "function",
-  function: { name, description, parameters },
-}));
 
 const toolMap = new Map(tools.map(tool => [tool.name, tool]));
 
@@ -31,7 +21,7 @@ export const toolsDescription = tools.map(tool => {
       const type = value.type;
       const required = Array.isArray(tool.parameters?.required) ? tool.parameters.required : [];
       const optional = !required.includes(key);
-      const defaultValue = value.default ? '' : ` = ${JSON.stringify(value.default)}`;
+      const defaultValue = value.default ? ` = ${JSON.stringify(value.default)}` : '';
       const optionalMark = optional ? '?' : '';
       return `${key}${optionalMark}: ${type}${defaultValue}`;
     })
@@ -64,34 +54,88 @@ export async function handleToolCalls(toolCalls: any[], messages: any[], context
   }));
 }
 
-export function parseMakeshiftToolCall(text: string): { hasTool: boolean; toolCall: any | null } {
-  const startIndex = text.indexOf('{');
-  const endIndex = text.lastIndexOf('}');
+function parseAttributeValue(value: string): any {
+  const trimmedValue = value.trim();
 
-  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
-    return { hasTool: false, toolCall: null };
+  if ((trimmedValue.startsWith('[') && trimmedValue.endsWith(']')) || (trimmedValue.startsWith('{') && trimmedValue.endsWith('}'))) {
+    try {
+      return JSON.parse(trimmedValue);
+    } catch (e) {
+      try {
+        const jsonFriendlyString = trimmedValue.replace(/'/g, '"');
+        return JSON.parse(jsonFriendlyString);
+      } catch (e2) {
+        // Fall through
+      }
+    }
   }
 
-  const potentialJson = text.substring(startIndex, endIndex + 1);
+  if (trimmedValue.toLowerCase() === 'true') return true;
+  if (trimmedValue.toLowerCase() === 'false') return false;
+  if (trimmedValue !== '' && !isNaN(Number(trimmedValue))) {
+    return Number(trimmedValue);
+  }
+  return value;
+}
 
-  try {
-    const parsed = JSON.parse(potentialJson);
 
-    if (parsed.tool && typeof parsed.tool === 'string' && parsed.args && typeof parsed.args === 'object') {
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "",
+  allowBooleanAttributes: true,
+  parseAttributeValue: false,
+});
+
+// *** THIS IS THE CORRECTED LINE ***
+const toolTagRegex = /<([a-zA-Z0-9_]+)((?:\s+\w+=(?:"[^"]*"|'[^']*'))*)\s*\/>/g;
+
+export function parseMakeshiftToolCalls(text: string): { hasTools: boolean; toolCalls: any[] | null; leftoverText: string } {
+  const toolCalls: any[] = [];
+  const matches = [...text.matchAll(toolTagRegex)];
+  const leftoverText = text.replace(toolTagRegex, '').trim();
+
+  if (matches.length === 0) {
+    return { hasTools: false, toolCalls: null, leftoverText };
+  }
+
+  for (const match of matches) {
+    const toolString = match[0];
+    try {
+      const parsed = parser.parse(toolString);
+      let toolName = Object.keys(parsed)[0];
+      const attributes = parsed[toolName] || {};
+      
+      if (toolName === 'tool' && attributes.name) {
+        toolName = attributes.name;
+        delete attributes.name;
+      }
+
+      const args: { [key: string]: any } = {};
+      for (const key in attributes) {
+        if (Object.prototype.hasOwnProperty.call(attributes, key)) {
+          args[key] = parseAttributeValue(attributes[key]);
+        }
+      }
+
       const toolCall = {
-        id: `makeshift-${Date.now()}`,
+        id: `makeshift-${Date.now()}-${toolCalls.length}`,
         type: 'function',
         function: {
-          name: parsed.tool,
-          arguments: JSON.stringify(parsed.args),
+          name: toolName,
+          arguments: JSON.stringify(args),
         },
       };
-      console.log(`Found and parsed makeshift tool call: ${parsed.tool}`);
-      return { hasTool: true, toolCall: toolCall };
+      toolCalls.push(toolCall);
+    } catch (error) {
+      console.error(`Failed to parse a tool tag: "${toolString}"`, error);
+      continue;
     }
-  } catch (error) {
-    return { hasTool: false, toolCall: null };
   }
 
-  return { hasTool: false, toolCall: null };
+  if (toolCalls.length > 0) {
+    console.log(`Found and parsed ${toolCalls.length} makeshift tool call(s).`);
+    return { hasTools: true, toolCalls, leftoverText };
+  }
+
+  return { hasTools: false, toolCalls: null, leftoverText };
 }
