@@ -2,7 +2,7 @@ import type { Tool } from '../../types';
 import type { Message } from 'discord.js-selfbot-v13';
 
 export const discordReply: Tool = {
-    name: "reply_to_message",
+    name: "specifically_reply_to_message",
     description: "Reply to a specific message in the current channel. Only use when relevant.",
     parameters: {
         type: "object",
