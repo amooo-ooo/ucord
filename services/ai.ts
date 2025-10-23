@@ -66,34 +66,42 @@ export async function createCompletion(options: any) {
   }
 }
 
+// *** THIS IS THE CORRECTED FUNCTION ***
 async function handleResponse(response: OpenAI.Chat.Completions.ChatCompletion | null, messages: any[], context: any): Promise<string> {
   if (!response) return '';
   const message = response.choices[0].message;
-  console.log(message);
+  console.log("Received model response:", message);
   const responseText = sanitizeReasoning(message);
 
   const { hasTools, toolCalls, leftoverText } = parseMakeshiftToolCalls(responseText);
 
-  if (leftoverText && context.channel) {
-    await context.channel.send(leftoverText);
-  }
-
+  // This is for tool calls. If tools are present, process them.
   if (hasTools && toolCalls) {
     console.log("Handling makeshift tool calls...");
+
+    // If there's any text before the tool call, send it as a preamble.
+    if (leftoverText && context.channel) {
+      await context.channel.send(leftoverText);
+    }
+
     const toolResults = await handleToolCalls(toolCalls, messages, context);
-    console.log(toolResults);
     const followUpMessages = [...messages, { role: 'assistant', content: responseText }, ...toolResults];
     const followUpResponse = await createCompletion({ messages: followUpMessages });
+    
+    // The final result of the tool chain will be returned by the recursive call.
     return handleResponse(followUpResponse, followUpMessages, context);
   }
-
-  return responseText.replace(/<([a-zA-Z0-9_]+)((?:\s+\w+=(?:"[^"]*"|'[^']*'))*)\s*\/>/g, '').trim();
+  
+  // If we get here, it means NO tools were called.
+  // We return the clean text to the main loop to be sent.
+  return leftoverText;
 }
+
 
 export async function respond(messageHistory: any[], context: any): Promise<string> {
   const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...messageHistory];
   try {
-    console.log("Creating completion...");
+    console.log("Making API call for makeshift tool response...");
     const response = await createCompletion({ messages });
     return await handleResponse(response, messages, context);
   } catch (error: any) {
