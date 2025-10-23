@@ -6,14 +6,16 @@ import ImageGen from './tools/image-gen';
 // import Api from './tools/api';
 import { discordReply, discordReact } from './tools/discord';
 import { searchGifs } from './tools/tenor';
+import { webSearch } from './tools/web';
 
 export const tools: Tool[] = [
-    Weather,
-    ImageGen,
-    searchGifs,
-    // Api,
-    discordReply,
-    discordReact
+  ImageGen,
+  searchGifs,
+  webSearch,
+  discordReply,
+  discordReact
+  // Weather,
+  // Api,
 ];
 
 export const chatCompletionTools: ChatCompletionTool[] = tools.map(({ name, description, parameters }) => ({
@@ -43,10 +45,10 @@ export async function handleToolCalls(toolCalls: any[], messages: any[], context
     const { name, arguments: argsString } = toolCall.function;
     const args = JSON.parse(argsString);
     const tool = toolMap.get(name);
-    
+
     let content;
     try {
-      content = tool 
+      content = tool
         ? await tool.handler(args, messages.at(-1).content, context)
         : `No handler implemented for tool: ${name}`;
     } catch (error) {
