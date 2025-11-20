@@ -64,6 +64,7 @@ export async function createCompletion(options: any) {
       throw error;
     }
   }
+  throw new Error('Failed to create completion after all attempts');
 }
 
 async function handleResponse(response: OpenAI.Chat.Completions.ChatCompletion | null, messages: any[], context: any): Promise<string> {
@@ -75,7 +76,11 @@ async function handleResponse(response: OpenAI.Chat.Completions.ChatCompletion |
 
   if (hasTools && toolCalls) {
     console.log("Handling makeshift tool calls...");
-    await handleToolCalls(toolCalls, messages, context);
+    const toolResults = await handleToolCalls(toolCalls, messages, context);
+    const followUpMessages = [...messages, { role: 'assistant', content: responseText }, ...toolResults];
+    const followUpResponse = await createCompletion({ messages: followUpMessages });
+    const finalResponse = await handleResponse(followUpResponse, followUpMessages, context);
+    return finalResponse || leftoverText;
   }
 
   return leftoverText;

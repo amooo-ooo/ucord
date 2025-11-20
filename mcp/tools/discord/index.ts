@@ -21,10 +21,12 @@ export const discordReply: Tool = {
         }
 
         try {
-            const messageCollection = await context.channel.messages.fetch(id);
-            const targetMessage = messageCollection.first();
+            // Fetch the specific message directly
+            const targetMessage = await context.channel.messages.fetch(id);
+            console.log(`[discordReply] Fetched message:`, targetMessage?.id);
 
-            if (!targetMessage) {
+            if (!targetMessage || typeof targetMessage.reply !== 'function') {
+                console.log(`[discordReply] Invalid message object`);
                 return `Error: Message with ID ${id} could not be found.`;
             }
 
@@ -64,13 +66,15 @@ export const discordReact: Tool = {
         }
 
         try {
-            const messageCollection = await context.channel.messages.fetch(id);
-            const targetMessage = messageCollection.first();
+            // Fetch the specific message directly
+            const targetMessage = await context.channel.messages.fetch(id);
+            console.log(`[discordReact] Fetched message:`, targetMessage?.id);
 
-            if (!targetMessage) {
+            if (!targetMessage || typeof targetMessage.react !== 'function') {
+                console.log(`[discordReact] Invalid message object`);
                 return `Error: Message with ID ${id} could not be found.`;
             }
-            
+
             for (const emoji of reactions) {
                 await targetMessage.react(emoji);
             }

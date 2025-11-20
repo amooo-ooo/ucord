@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import type { Tool } from '../../types';
 
-export const tool: Tool = {
+export const weather: Tool = {
     name: "get_weather",
     description: "Get current weather information for a location",
     parameters: {
@@ -58,4 +58,4 @@ export const tool: Tool = {
     }
 };
 
-export default tool;
+export default weather;
