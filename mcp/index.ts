@@ -5,6 +5,7 @@ import { discordReply, discordReact } from './tools/discord';
 import { searchGifs } from './tools/tenor';
 // import { webSearch } from './tools/web';
 import { weather } from './tools/weather';
+import { logger } from '../utils/logger';
 
 export const tools: Tool[] = [
   ImageGen,
@@ -75,6 +76,8 @@ function parseAttributeValue(value: string): any {
   if (trimmedValue.toLowerCase() === 'true') return true;
   if (trimmedValue.toLowerCase() === 'false') return false;
 
+  // Check if it's a number, but keep long numbers (like Discord IDs) as strings
+  // MAX_SAFE_INTEGER is 9007199254740991 (16 digits). Discord IDs are ~18-19 digits.
   if (trimmedValue !== '' && !isNaN(Number(trimmedValue))) {
     if (trimmedValue.length > 15) {
       return trimmedValue;
@@ -132,13 +135,13 @@ export function parseMakeshiftToolCalls(text: string): { hasTools: boolean; tool
       };
       toolCalls.push(toolCall);
     } catch (error) {
-      console.error(`Failed to parse a tool tag: "${toolString}"`, error);
+      logger.error(`Failed to parse a tool tag: "${toolString}"`, error);
       continue;
     }
   }
 
   if (toolCalls.length > 0) {
-    console.log(`Found and parsed ${toolCalls.length} makeshift tool call(s).`);
+    logger.info(`Found and parsed ${toolCalls.length} makeshift tool call(s).`);
     return { hasTools: true, toolCalls, leftoverText };
   }
 

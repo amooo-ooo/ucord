@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import type { Tool } from '../../types';
 import { MessageAttachment } from 'discord.js-selfbot-v13';
+import { logger } from '../../../utils/logger';
 
 export const tool: Tool = {
     name: "generate_image",
@@ -9,33 +10,33 @@ export const tool: Tool = {
         type: "object",
         properties: {
             prompt: { type: "string", description: "The text description of the image to generate" },
-            mode: { 
-                type: "'base' | 'canny' | 'depth'", 
+            mode: {
+                type: "'base' | 'canny' | 'depth'",
                 description: "The generation mode",
                 default: "base"
             },
-            width: { 
-                type: "1..2048", 
+            width: {
+                type: "1..2048",
                 description: "Image width in pixels",
                 default: 1024
             },
-            height: { 
-                type: "1..2048", 
+            height: {
+                type: "1..2048",
                 description: "Image height in pixels",
                 default: 1024
             },
-            seed: { 
-                type: "number", 
+            seed: {
+                type: "number",
                 description: "Random seed for generation (0 for random)",
                 default: 0
             },
-            cfg_scale: { 
-                type: "1..9", 
+            cfg_scale: {
+                type: "1..9",
                 description: "How closely the image follows the prompt (1-10)",
                 default: 3.5
             },
-            steps: { 
-                type: "1..100", 
+            steps: {
+                type: "1..100",
                 description: "Number of diffusion steps (more = higher quality but slower)",
                 default: 50
             }
@@ -43,7 +44,7 @@ export const tool: Tool = {
         required: ["prompt"],
     },
     handler: async (args: Record<string, any>, message?: string, context?: any): Promise<string> => {
-        let { 
+        let {
             prompt,
             mode = "base",
             width = 1024,
@@ -52,45 +53,45 @@ export const tool: Tool = {
             cfg_scale = 3.5,
             steps = 50
         } = args;
-        
+
         if (!message) {
             return "Error: Message context not provided. Cannot send image.";
         }
 
         const validModes = ["base", "canny", "depth"];
         if (!validModes.includes(mode)) {
-            console.warn(`Invalid mode "${mode}" received. Falling back to "base".`);
+            logger.debug(`Invalid mode "${mode}" received. Falling back to "base".`);
             mode = "base";
         }
 
         if (width < 1 || width > 2048) {
-            console.warn(`Invalid width "${width}" received. Falling back to 1024.`);
+            logger.debug(`Invalid width "${width}" received. Falling back to 1024.`);
             width = 1024;
         }
 
         if (height < 1 || height > 2048) {
-            console.warn(`Invalid height "${height}" received. Falling back to 1024.`);
+            logger.debug(`Invalid height "${height}" received. Falling back to 1024.`);
             height = 1024;
         }
 
         if (cfg_scale < 1 || cfg_scale > 9) {
-            console.warn(`Invalid cfg_scale "${cfg_scale}" received. Falling back to 3.5.`);
+            logger.debug(`Invalid cfg_scale "${cfg_scale}" received. Falling back to 3.5.`);
             cfg_scale = 3.5;
         }
 
         if (steps < 1 || steps > 100) {
-            console.warn(`Invalid steps "${steps}" received. Falling back to 50.`);
+            logger.debug(`Invalid steps "${steps}" received. Falling back to 50.`);
             steps = 50;
         }
 
         try {
             const invokeUrl = "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev";
-            
+
             const headers = {
                 "Authorization": `Bearer ${process.env.NVIDIA_API_KEY}`,
                 "Accept": "application/json"
             };
-            
+
             const payload = {
                 prompt,
                 mode,
@@ -115,30 +116,30 @@ export const tool: Tool = {
                 const errBody = await (await response.blob()).text();
                 throw new Error(`Invocation failed with status ${response.status}: ${errBody}`);
             }
-            
+
             const responseData: any = await response.json();
-            console.log("API Response:", JSON.stringify(responseData).substring(0, 200) + "...");
-            
+            logger.debug("API Response:", JSON.stringify(responseData).substring(0, 200) + "...");
+
             let imageData: string | undefined;
-            
+
             if (responseData?.artifacts && Array.isArray(responseData.artifacts) && responseData.artifacts.length > 0) {
                 const firstArtifact = responseData.artifacts[0];
                 if (firstArtifact.base64) {
                     imageData = firstArtifact.base64;
                 }
             }
-            
+
             if (!imageData) {
-                const structure = typeof responseData === 'object' && responseData !== null 
-                    ? Object.keys(responseData).join(', ') 
+                const structure = typeof responseData === 'object' && responseData !== null
+                    ? Object.keys(responseData).join(', ')
                     : typeof responseData;
                 throw new Error(`No image data in response. Response structure: ${structure}`);
             }
-            
+
             const imageBuffer = Buffer.from(imageData, 'base64');
-            
+
             const attachment = new MessageAttachment(imageBuffer, 'generated-image.png');
-            
+
             await context.channel.send({
                 files: [attachment]
             });

@@ -1,5 +1,6 @@
 import type { Tool } from '../../types';
 import fetch from 'node-fetch';
+import { logger } from '../../../utils/logger';
 
 export const searchGifs: Tool = {
     name: "search_gifs",
@@ -40,18 +41,18 @@ export const searchGifs: Tool = {
 
             const simplifiedResults = data.results.map((result: any, index: number) => {
                 const gifUrl = result.media[0]?.gif?.url || result.media[0]?.tinygif?.url || result.url;
-                
+
                 return {
                     choice_id: index + 1,
                     description: result.content_description || "A relevant GIF.",
                     url: gifUrl
                 };
             });
-            
+
             return `[GIF Search Results for "${query}"]:\n${JSON.stringify(simplifiedResults, null, 2)}`;
 
         } catch (error) {
-            console.error("Failed to search for GIFs:", error);
+            logger.error("Failed to search for GIFs:", error);
             if (error instanceof Error) {
                 return `Failed to search for GIFs: ${error.message}`;
             }

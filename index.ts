@@ -2,6 +2,7 @@ import { Client, Message } from 'discord.js-selfbot-v13';
 import * as mj from 'mathjax-node';
 import sharp from 'sharp';
 import { respond, sanitizeContent, describeImage } from './services/ai';
+import { logger } from './utils/logger';
 
 interface MessageChunk {
     type: 'text' | 'latex' | 'image';
@@ -20,7 +21,7 @@ mj.start();
 client.once('ready', async () => {
     if (client.user) {
         await client.user.setPresence({ status: 'online' });
-        console.log(`${client.user.username} is ready!`);
+        logger.info(`${client.user.username} is ready!`);
     }
 });
 
@@ -50,7 +51,7 @@ async function* constructReplyChunks(reply: string): AsyncGenerator<MessageChunk
 }
 
 async function convertLatexToImage(latex: string): Promise<Buffer> {
-    console.log(`Rendering LaTeX: ${latex}`);
+    logger.debug(`Rendering LaTeX: ${latex}`);
 
     const SCALE_FACTOR = 1.3;
 
@@ -65,7 +66,7 @@ async function convertLatexToImage(latex: string): Promise<Buffer> {
     });
 
     if (data.errors) {
-        console.error('MathJax rendering error:', data.errors);
+        logger.error('MathJax rendering error:', data.errors);
         throw new Error(`MathJax rendering failed: ${data.errors}`);
     }
     if (!data.svg) {
@@ -74,11 +75,11 @@ async function convertLatexToImage(latex: string): Promise<Buffer> {
 
     const latexImage = sharp(Buffer.from(data.svg));
     const metadata = await latexImage.metadata();
-    
+
     const scaledWidth = Math.ceil((metadata.width || 0) * SCALE_FACTOR);
     const scaledLatexBuffer = await latexImage.resize(scaledWidth).toBuffer();
 
-    const paddingX = 8; 
+    const paddingX = 8;
     const paddingY = 8;
     const scaledMetadata = await sharp(scaledLatexBuffer).metadata();
 
@@ -93,11 +94,11 @@ async function convertLatexToImage(latex: string): Promise<Buffer> {
             background: { r: 0, g: 0, b: 0, alpha: 0 }
         }
     })
-    .png()
-    .toBuffer();
+        .png()
+        .toBuffer();
 
     return sharp(transparentBackground)
-        .composite([{ 
+        .composite([{
             input: scaledLatexBuffer,
             top: paddingY,
             left: paddingX
@@ -122,8 +123,8 @@ async function sendReplyInChunks(message: Message, reply: string) {
                     await message.channel.send({ content: chunk.altText || undefined, files: [chunk.content] });
                     break;
             }
-        } catch (err) {
-            console.error('Failed to send a message chunk:', err.message || err);
+        } catch (err: any) {
+            logger.error('Failed to send a message chunk:', err.message || err);
         }
     }
 }
@@ -146,14 +147,21 @@ function formatTimeAgo(unixTimestamp: number): string {
     return 'just now';
 }
 
-function formatTimestamp(unixTimestamp: number): string {
+function formatTime(unixTimestamp: number): string {
+    const date = new Date(unixTimestamp);
+    const options: Intl.DateTimeFormatOptions = {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+    };
+    const time = date.toLocaleString('en-GB', options);
+    return `${time} (${formatTimeAgo(unixTimestamp)})`;
+}
+
+function formatDate(unixTimestamp: number): string {
     const date = new Date(unixTimestamp);
     const options: Intl.DateTimeFormatOptions = {
         day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', hour12: true,
     };
-    const absoluteTime = date.toLocaleString('en-GB', options).replace(',', '');
-    return `${absoluteTime} (${formatTimeAgo(unixTimestamp)})`;
+    return date.toLocaleString('en-GB', options);
 }
 
 async function processAttachment(msg: Message): Promise<string> {
@@ -162,11 +170,11 @@ async function processAttachment(msg: Message): Promise<string> {
 
     const cacheKey = `${msg.id}-${imageAttachment.id}`;
     if (imageDescriptionCache.has(cacheKey)) {
-        console.log(`[Cache] HIT for attachment ${imageAttachment.id}.`);
-        return `\n<attachment type="${imageAttachment.contentType}">${imageDescriptionCache.get(cacheKey)}</attachment>`;
+        logger.debug(`[Cache] HIT for attachment ${imageAttachment.id}.`);
+        return `\n    <attachment type="${imageAttachment.contentType}">${imageDescriptionCache.get(cacheKey)}</attachment>`;
     }
 
-    console.log(`[Cache] MISS for attachment ${imageAttachment.id}. Fetching...`);
+    logger.debug(`[Cache] MISS for attachment ${imageAttachment.id}. Fetching...`);
     try {
         const response = await fetch(imageAttachment.url);
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
@@ -176,11 +184,11 @@ async function processAttachment(msg: Message): Promise<string> {
         const description = await describeImage(base64Image, imageAttachment.contentType);
 
         imageDescriptionCache.set(cacheKey, description);
-        console.log(`[Cache] SET for attachment ${imageAttachment.id}.`);
-        return `\n<attachment type="${imageAttachment.contentType}">${description}</attachment>`;
+        logger.debug(`[Cache] SET for attachment ${imageAttachment.id}.`);
+        return `\n    <attachment type="${imageAttachment.contentType}">${description}</attachment>`;
     } catch (error) {
-        console.error(`Failed to process image attachment:`, error);
-        return `\n<attachment type="${imageAttachment.contentType}">[Image failed to process]</attachment>`;
+        logger.error(`Failed to process image attachment:`, error);
+        return `\n    <attachment type="${imageAttachment.contentType}">[Image failed to process]</attachment>`;
     }
 }
 
@@ -195,7 +203,7 @@ async function formatReplyBlock(msg: Message, recentMessagesMap: Map<string, Mes
         try {
             originalMsg = await msg.channel.messages.fetch(messageId);
         } catch (error) {
-            console.error(`Failed to fetch out-of-context message ID ${messageId}:`, error);
+            logger.error(`Failed to fetch out-of-context message ID ${messageId}:`, error);
         }
     }
 
@@ -204,16 +212,25 @@ async function formatReplyBlock(msg: Message, recentMessagesMap: Map<string, Mes
     }
 
     const authorName = originalMsg?.author.displayName ?? originalMsg?.author.username ?? 'Unknown User';
-    return `\n  <reply to_user="${authorName}" to_message_id="${messageId}">\n${content}\n  </reply>`;
+    return `\n    <reply to_user="${authorName}" to_message_id="${messageId}">\n      ${content}\n    </reply>`;
 }
 
 async function formatSingleMessage(msg: Message, recentMessagesMap: Map<string, Message>): Promise<string> {
-    const timestamp = formatTimestamp(msg.createdTimestamp);
+    const timestamp = formatTime(msg.createdTimestamp);
     const attachmentContent = await processAttachment(msg);
     const replyBlock = await formatReplyBlock(msg, recentMessagesMap);
-    const fullContent = `${msg.content ?? ''}${attachmentContent}`;
 
-    return `<msg id="${msg.id}" timestamp="${timestamp}">${replyBlock}${replyBlock ? '\n' : ''}${fullContent}\n</msg>`;
+    let content = msg.content ?? '';
+    if (content) {
+        content = content.split('\n').join('\n    ');
+    }
+
+    let body = '';
+    if (replyBlock) body += replyBlock;
+    if (content) body += `\n    ${content}`;
+    if (attachmentContent) body += attachmentContent;
+
+    return `  <msg id="${msg.id}" timestamp="${timestamp}">${body}\n  </msg>`;
 }
 
 async function buildContext(message: Message): Promise<{ role: string; content: string }[]> {
@@ -246,7 +263,8 @@ async function buildContext(message: Message): Promise<{ role: string; content: 
 
         const formattedMessages = await Promise.all(group.messages.map(msg => formatSingleMessage(msg, recentMessagesMap)));
         const author = group.messages[0].author.displayName ?? group.messages[0].author.username;
-        const userGroupContent = `<user name="${author}" channel_type="${message.channel.type}">\n${formattedMessages.join('\n')}\n</user>`;
+        const date = formatDate(group.messages[0].createdTimestamp);
+        const userGroupContent = `<user name="${author}" channel_type="${message.channel.type}" date="${date}">\n${formattedMessages.join('\n')}\n</user>`;
 
         return { role, content: userGroupContent };
     }));
@@ -256,10 +274,14 @@ client.on('messageCreate', async (message: Message) => {
     if (!client.user || message.author.id === client.user.id || (process.env.CHANNEL && message.channel.id !== process.env.CHANNEL)) return;
     if (message.content === "" && message.attachments.size === 0) return;
 
-    console.log(`${message.member?.displayName ?? message.author.username}: ${message.content}`);
-
     try {
         const messages = await buildContext(message);
+
+        // Log the full XML context of the latest message group
+        if (messages.length > 0) {
+            logger.xml(messages[messages.length - 1].content);
+        }
+
         await message.channel.sendTyping();
 
         const maxChains = 6;
@@ -271,7 +293,7 @@ client.on('messageCreate', async (message: Message) => {
             messages.push({ role: 'assistant', content: reply });
         }
     } catch (err) {
-        console.error('Error during AI response generation:', err);
+        logger.error('Error during AI response generation:', err);
     }
 });
 

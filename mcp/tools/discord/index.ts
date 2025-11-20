@@ -1,4 +1,5 @@
 import type { Tool } from '../../types';
+import { logger } from '../../../utils/logger';
 
 export const discordReply: Tool = {
     name: "specifically_reply_to_message",
@@ -23,17 +24,17 @@ export const discordReply: Tool = {
         try {
             // Fetch the specific message directly
             const targetMessage = await context.channel.messages.fetch(id);
-            console.log(`[discordReply] Fetched message:`, targetMessage?.id);
+            logger.debug(`[discordReply] Fetched message:`, targetMessage?.id);
 
             if (!targetMessage || typeof targetMessage.reply !== 'function') {
-                console.log(`[discordReply] Invalid message object`);
+                logger.debug(`[discordReply] Invalid message object`);
                 return `Error: Message with ID ${id} could not be found.`;
             }
 
             await targetMessage.reply(replyContent);
             return `Successfully replied to message ID ${id}`;
         } catch (error) {
-            console.error("Failed to reply to message:", error);
+            logger.error("Failed to reply to message:", error);
             if (error instanceof Error) {
                 return `Failed to reply to message ID ${id}: ${error.message}`;
             }
@@ -68,10 +69,10 @@ export const discordReact: Tool = {
         try {
             // Fetch the specific message directly
             const targetMessage = await context.channel.messages.fetch(id);
-            console.log(`[discordReact] Fetched message:`, targetMessage?.id);
+            logger.debug(`[discordReact] Fetched message:`, targetMessage?.id);
 
             if (!targetMessage || typeof targetMessage.react !== 'function') {
-                console.log(`[discordReact] Invalid message object`);
+                logger.debug(`[discordReact] Invalid message object`);
                 return `Error: Message with ID ${id} could not be found.`;
             }
 
@@ -82,7 +83,7 @@ export const discordReact: Tool = {
             const emojiList = reactions.join(', ');
             return `Successfully reacted to message ID ${id} with emojis: ${emojiList}`;
         } catch (error) {
-            console.error("Failed to react to message:", error);
+            logger.error("Failed to react to message:", error);
             if (error instanceof Error) {
                 return `Failed to react to message ID ${id}: ${error.message}`;
             }
