@@ -3,17 +3,17 @@ import { XMLParser } from 'fast-xml-parser';
 import ImageGen from './tools/image-gen';
 import { discordReply, discordReact } from './tools/discord';
 import { searchGifs } from './tools/tenor';
-// import { webSearch } from './tools/web';
+import { webSearch } from './tools/web';
 import { weather } from './tools/weather';
 import { logger } from '../utils/logger';
 
 export const tools: Tool[] = [
   ImageGen,
   searchGifs,
-  // webSearch,
   discordReply,
   discordReact,
-  weather
+  weather,
+  webSearch,
 ];
 
 const toolMap = new Map(tools.map(tool => [tool.name, tool]));

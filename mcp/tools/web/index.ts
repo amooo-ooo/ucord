@@ -1,6 +1,7 @@
 import { chromium, type Browser } from 'playwright';
 import fetch from 'node-fetch';
 import type { Tool } from '../../types';
+import { logger } from '../../../utils/logger';
 
 export const webSearch: Tool = {
     name: "web_search",
@@ -32,11 +33,11 @@ export const webSearch: Tool = {
             if (result) {
                 return result;
             }
-            
+
             throw new Error("No results found from API, trying fallback...");
 
         } catch (error) {
-            console.log(`Fetch API failed: ${error instanceof Error ? error.message : 'Unknown error'}. Falling back to Playwright.`);
+            logger.debug(`Fetch API failed: ${error instanceof Error ? error.message : 'Unknown error'}. Falling back to Playwright.`);
 
             let browser: Browser | null = null;
             try {
