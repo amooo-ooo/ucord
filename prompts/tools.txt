@@ -4,10 +4,8 @@ When using a tool, **simply** respond with a XML object in this format:
 
 For example:
 
-<web_search query="weather today chch nz"/>
 <react_to_message id="1430851443757416488" reactions="['👋']"/>
 
 You can call multiple tools at once by listing multiple XML objects.
 Do not invent tools you don't have.
 If the answer can be given without using a tool, respond with normal text instead.
-**NEVER <NULL> after a tool invocation.**

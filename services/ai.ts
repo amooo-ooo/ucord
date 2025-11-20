@@ -71,17 +71,14 @@ async function handleResponse(response: OpenAI.Chat.Completions.ChatCompletion |
   const message = response.choices[0].message;
   console.log("Received model response:", message);
   const responseText = sanitizeReasoning(message);
-  const { hasTools, toolCalls } = parseMakeshiftToolCalls(responseText);
+  const { hasTools, toolCalls, leftoverText } = parseMakeshiftToolCalls(responseText);
 
   if (hasTools && toolCalls) {
     console.log("Handling makeshift tool calls...");
-    const toolResults = await handleToolCalls(toolCalls, messages, context);
-    const followUpMessages = [...messages, { role: 'assistant', content: responseText }, ...toolResults];
-    const followUpResponse = await createCompletion({ messages: followUpMessages });
-    return handleResponse(followUpResponse, followUpMessages, context);
+    await handleToolCalls(toolCalls, messages, context);
   }
-  
-  return responseText;
+
+  return leftoverText;
 }
 
 export async function respond(messageHistory: any[], context: any): Promise<string> {
