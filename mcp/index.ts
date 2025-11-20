@@ -5,6 +5,7 @@ import { discordReply, discordReact } from './tools/discord';
 import { searchGifs } from './tools/tenor';
 import { webSearch } from './tools/web';
 import { weather } from './tools/weather';
+import { getCurrentTime, getMessageTimestamp } from './tools/time';
 import { logger } from '../utils/logger';
 
 export const tools: Tool[] = [
@@ -14,6 +15,8 @@ export const tools: Tool[] = [
   discordReact,
   weather,
   webSearch,
+  getCurrentTime,
+  getMessageTimestamp,
 ];
 
 const toolMap = new Map(tools.map(tool => [tool.name, tool]));
@@ -111,6 +114,9 @@ export function parseMakeshiftToolCalls(text: string): { hasTools: boolean; tool
     try {
       const parsed = parser.parse(toolString);
       let toolName = Object.keys(parsed)[0];
+
+      if (!toolName) continue;
+
       const attributes = parsed[toolName] || {};
 
       if (toolName === 'tool' && attributes.name) {

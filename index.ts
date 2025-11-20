@@ -171,7 +171,7 @@ async function processAttachment(msg: Message): Promise<string> {
     const cacheKey = `${msg.id}-${imageAttachment.id}`;
     if (imageDescriptionCache.has(cacheKey)) {
         logger.debug(`[Cache] HIT for attachment ${imageAttachment.id}.`);
-        return `\n    <attachment type="${imageAttachment.contentType}">${imageDescriptionCache.get(cacheKey)}</attachment>`;
+        return `<attachment type="${imageAttachment.contentType}">${imageDescriptionCache.get(cacheKey)}</attachment>`;
     }
 
     logger.debug(`[Cache] MISS for attachment ${imageAttachment.id}. Fetching...`);
@@ -185,10 +185,10 @@ async function processAttachment(msg: Message): Promise<string> {
 
         imageDescriptionCache.set(cacheKey, description);
         logger.debug(`[Cache] SET for attachment ${imageAttachment.id}.`);
-        return `\n    <attachment type="${imageAttachment.contentType}">${description}</attachment>`;
+        return `<attachment type="${imageAttachment.contentType}">${description}</attachment>`;
     } catch (error) {
         logger.error(`Failed to process image attachment:`, error);
-        return `\n    <attachment type="${imageAttachment.contentType}">[Image failed to process]</attachment>`;
+        return `<attachment type="${imageAttachment.contentType}">[Image failed to process]</attachment>`;
     }
 }
 
@@ -212,25 +212,24 @@ async function formatReplyBlock(msg: Message, recentMessagesMap: Map<string, Mes
     }
 
     const authorName = originalMsg?.author.displayName ?? originalMsg?.author.username ?? 'Unknown User';
-    return `\n    <reply to_user="${authorName}" to_message_id="${messageId}">\n      ${content}\n    </reply>`;
+    return `<replying to_user="${authorName}" to_message_id="${messageId}">${content}</replying>`;
 }
 
 async function formatSingleMessage(msg: Message, recentMessagesMap: Map<string, Message>): Promise<string> {
-    const timestamp = formatTime(msg.createdTimestamp);
     const attachmentContent = await processAttachment(msg);
     const replyBlock = await formatReplyBlock(msg, recentMessagesMap);
 
+    const reactions = msg.reactions.cache.map(r => r.emoji.name).filter(Boolean);
+    const reactionsAttr = reactions.length > 0 ? ` reactions='${JSON.stringify(reactions)}'` : '';
+
     let content = msg.content ?? '';
-    if (content) {
-        content = content.split('\n').join('\n    ');
-    }
 
     let body = '';
     if (replyBlock) body += replyBlock;
-    if (content) body += `\n    ${content}`;
-    if (attachmentContent) body += attachmentContent;
+    if (content) body += (body ? '\n' : '') + content;
+    if (attachmentContent) body += (body ? '\n' : '') + attachmentContent;
 
-    return `  <msg id="${msg.id}" timestamp="${timestamp}">${body}\n  </msg>`;
+    return `<msg id="${msg.id}"${reactionsAttr}>${body}</msg>`;
 }
 
 async function buildContext(message: Message): Promise<{ role: string; content: string }[]> {
@@ -263,8 +262,7 @@ async function buildContext(message: Message): Promise<{ role: string; content: 
 
         const formattedMessages = await Promise.all(group.messages.map(msg => formatSingleMessage(msg, recentMessagesMap)));
         const author = group.messages[0].author.displayName ?? group.messages[0].author.username;
-        const date = formatDate(group.messages[0].createdTimestamp);
-        const userGroupContent = `<user name="${author}" channel_type="${message.channel.type}" date="${date}">\n${formattedMessages.join('\n')}\n</user>`;
+        const userGroupContent = `<user name="${author}" channel_type="${message.channel.type}">\n${formattedMessages.join('\n')}\n</user>`;
 
         return { role, content: userGroupContent };
     }));
